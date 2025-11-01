@@ -5,11 +5,11 @@
 ## 워크플로우 파일
 
 ### 1. `build.yml`
-**목적**: main 브랜치에 푸시될 때마다 Windows 빌드를 실행하고 아티팩트를 업로드합니다.
+**목적**: `develop` 브랜치에 푸시될 때마다 Windows 빌드를 실행하고 아티팩트를 업로드합니다.
 
 **트리거**:
-- `main` 브랜치에 푸시
-- Pull Request가 `main` 브랜치로 병합
+- `develop` 브랜치에 푸시
+- `develop` 브랜치로의 Pull Request
 - 수동 실행 (workflow_dispatch)
 
 **실행 내용**:
@@ -18,15 +18,25 @@
 3. 의존성 설치 (`npm ci`)
 4. 캐시 삭제
 5. Windows 빌드 실행
-6. 빌드 아티팩트 업로드
-7. Release 생성 (main 브랜치 푸시 시)
+6. 빌드 아티팩트 업로드 (릴리스는 생성하지 않음)
 
 ### 2. `build-release.yml`
-**목적**: 태그가 푸시되면 릴리스를 생성합니다.
+**목적**: 태그가 푸시되면 빌드하고 릴리스를 생성합니다. `main` 브랜치 푸시 시에는 빌드만 실행합니다.
 
 **트리거**:
-- `v*` 형식의 태그 푸시 (예: `v2.0.0`)
+- `v*` 형식의 태그 푸시 (예: `v2.0.0`) → 빌드 + 릴리스 생성
+- `main` 브랜치에 푸시 → 빌드만 실행 (릴리스 생성 안 함)
 - 수동 실행
+
+### 3. `build-pr.yml`
+**목적**: Pull Request 시 빌드 테스트 실행
+
+**트리거**:
+- `develop` 또는 `main` 브랜치로의 Pull Request
+
+**실행 내용**:
+- 빌드 테스트 및 아티팩트 업로드 (7일 보관)
+- 릴리스 생성하지 않음
 
 **사용 방법**:
 ```bash
@@ -35,22 +45,36 @@ git tag v2.0.0
 git push origin v2.0.0
 ```
 
-### 3. `test.yml`
+### 4. `test.yml`
 **목적**: 코드 품질 검사 및 테스트 실행
 
 **트리거**:
 - Pull Request 생성/업데이트
-- `main` 브랜치에 푸시
+- `develop` 브랜치에 푸시
+
+## 브랜치 전략
+
+이 프로젝트는 Git Flow 전략을 사용합니다:
+- **develop**: 개발 브랜치 (자동 빌드 실행)
+- **main**: 프로덕션 브랜치 (태그 푸시 시 릴리스 생성)
+- **feature/***: 기능 개발 브랜치
+
+자세한 내용은 [.git-branch-strategy.md](../.git-branch-strategy.md)를 참조하세요.
 
 ## 사용 방법
 
 ### 자동 빌드
-`main` 브랜치에 푸시하면 자동으로 빌드가 시작됩니다.
+`develop` 브랜치에 푸시하면 자동으로 빌드가 시작됩니다.
 
 ```bash
+# develop 브랜치로 전환 (처음 설정 시)
+git checkout -b develop
+git push origin develop
+
+# 작업 후 푸시
 git add .
-git commit -m "빌드 수정"
-git push origin main
+git commit -m "feat: 새로운 기능"
+git push origin develop
 ```
 
 ### 수동 빌드
@@ -61,12 +85,22 @@ GitHub Actions 탭에서 워크플로우를 수동으로 실행할 수 있습니
 3. "Run workflow" 버튼 클릭
 
 ### 릴리스 생성
-릴리스를 만들려면 버전 태그를 생성하고 푸시하세요:
+프로덕션 릴리스를 만들려면:
 
+1. **develop 브랜치에서 main으로 병합**
+```bash
+git checkout main
+git merge develop
+git push origin main
+```
+
+2. **버전 태그 생성 및 푸시**
 ```bash
 git tag v2.0.1
 git push origin v2.0.1
 ```
+
+태그 푸시 시 자동으로 릴리스가 생성됩니다.
 
 ## 빌드 아티팩트 다운로드
 

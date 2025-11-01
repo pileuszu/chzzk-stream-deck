@@ -3,16 +3,17 @@ name: Build and Release
 on:
   push:
     branches:
-      - main
+      - develop  # develop 브랜치에 푸시 시 빌드 실행
     paths-ignore:
       - '**.md'
       - '.gitignore'
       - 'README*.md'
       - 'BUILD_FIX.md'
       - 'README_BUILD.md'
+      - '.git-branch-strategy.md'
   pull_request:
     branches:
-      - main
+      - develop  # develop 브랜치로의 PR에서도 빌드 테스트
   workflow_dispatch: # 수동 실행 가능
 
 jobs:
