@@ -8,27 +8,31 @@
 
 /* 모듈 카드 */
 .module-card {
-    background: #1a1a1a;
-    border-radius: 1rem;
-    padding: 1.5rem;
-    border: 1px solid #2a2a2a;
-    transition: all 0.3s ease;
+    background: linear-gradient(145deg, #1a1a1a 0%, #1f1f2e 100%);
+    border-radius: 1.25rem;
+    padding: 2rem;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     animation: fadeIn 0.5s ease-out forwards;
     opacity: 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
 }
 
 .module-card:nth-child(1) { animation-delay: 0.1s; }
 .module-card:nth-child(2) { animation-delay: 0.2s; }
 
 .module-card:hover {
-    transform: translateY(-5px);
-    border-color: #667eea;
-    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    transform: translateY(-8px) scale(1.01);
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 12px 40px rgba(139, 92, 246, 0.25);
+    background: linear-gradient(145deg, #1f1f2e 0%, #252538 100%);
 }
 
 .module-card.active {
-    border-color: #667eea;
-    background: linear-gradient(135deg, #1a1a1a 0%, #1f1f2e 100%);
+    border-color: rgba(139, 92, 246, 0.6);
+    background: linear-gradient(145deg, #1f1f2e 0%, #2a2a3e 100%);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3);
 }
 
 /* 모듈 헤더 */
@@ -39,15 +43,22 @@
 }
 
 .module-icon {
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 12px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    margin-right: 1rem;
+    font-size: 1.6rem;
+    margin-right: 1.25rem;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    transition: all 0.3s ease;
+}
+
+.module-card:hover .module-icon {
+    transform: rotate(5deg) scale(1.05);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
 }
 
 .module-info {
@@ -55,13 +66,16 @@
 }
 
 .module-info h3 {
-    font-size: 1.2rem;
-    margin-bottom: 0.25rem;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: #ffffff;
 }
 
 .module-info p {
-    color: #888;
-    font-size: 0.9rem;
+    color: #a0a0a0;
+    font-size: 0.95rem;
+    line-height: 1.5;
 }
 
 /* 모듈 컨트롤 */
@@ -72,22 +86,25 @@
 }
 
 .settings-btn {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border: none;
-    background: #2a2a2a;
-    color: #888;
-    border-radius: 8px;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border-radius: 10px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
+    border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 .settings-btn:hover {
-    background: #3a3a3a;
-    color: #fff;
+    background: rgba(139, 92, 246, 0.2);
+    color: #a78bfa;
+    border-color: rgba(139, 92, 246, 0.4);
+    transform: rotate(90deg);
 }
 
 /* 토글 스위치 */
@@ -141,7 +158,8 @@
 }
 
 input:checked + .slider {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
 }
 
 input:checked + .slider:before {
@@ -226,7 +244,8 @@ input:checked + .slider:before {
 
 .url-copy-container input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
 .copy-btn {
@@ -249,8 +268,9 @@ input:checked + .slider:before {
 }
 
 .copy-btn.copied {
-    background: #667eea;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
     color: #fff;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
 }
 
 /* 모달 스타일 */
@@ -267,27 +287,36 @@ input:checked + .slider:before {
 }
 
 .modal-content {
-    background-color: #1a1a1a;
+    background: linear-gradient(145deg, #1a1a1a 0%, #1f1f2e 100%);
     margin: 5% auto;
     padding: 0;
-    border: 1px solid #2a2a2a;
+    border: 1px solid rgba(139, 92, 246, 0.3);
     width: 90%;
-    max-width: 600px;
-    border-radius: 1rem;
+    max-width: 650px;
+    border-radius: 1.5rem;
     animation: slideDown 0.3s ease-out;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
 }
 
 .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #2a2a2a;
+    padding: 2rem;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+    border-radius: 1.5rem 1.5rem 0 0;
 }
 
 .modal-header h2 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .close-btn {
@@ -338,9 +367,12 @@ input:checked + .slider:before {
 }
 
 .settings-section h3 {
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
-    color: #667eea;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: #8b5cf6;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid rgba(139, 92, 246, 0.2);
 }
 
 .setting-item {
@@ -414,19 +446,22 @@ input[type="number"] {
 }
 
 .setting-item input[type="text"]:focus,
-.setting-item input[type="password"]:focus {
+.setting-item input[type="password"]:focus,
+.setting-item input[type="number"]:focus,
+.setting-item select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
 /* 정보 아이콘과 툴팁 */
 .info-icon {
     margin-left: 0.5rem;
-    color: #667eea;
+    color: #8b5cf6;
     cursor: help;
     font-size: 1rem;
     position: relative;
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
     display: inline-block;
     width: 16px;
     height: 16px;
@@ -435,8 +470,8 @@ input[type="number"] {
 }
 
 .info-icon:hover {
-    color: #764ba2;
-    transform: scale(1.1);
+    color: #a78bfa;
+    transform: scale(1.15);
 }
 
 .info-icon::after {
@@ -492,13 +527,15 @@ input[type="number"] {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
     color: white;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
+    background: linear-gradient(135deg, #9d6eff 0%, #7475ff 100%);
 }
 
 .btn-secondary {

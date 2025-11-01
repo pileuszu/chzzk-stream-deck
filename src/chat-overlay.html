@@ -409,9 +409,9 @@
         class ChatOverlay {
             constructor() {
                 this.eventSource = null;
-                this.maxMessages = 20;
+                this.maxMessages = 5;
                 this.messageTimeout = 30; // 초
-                this.maxNicknameLength = 20; // 닉네임 최대 길이
+                this.maxNicknameLength = 5; // 닉네임 최대 길이
                 // 서버 URL은 현재 페이지의 origin 사용
                 this.serverUrl = window.location.origin;
                 this.messages = [];
@@ -422,10 +422,10 @@
                 
                 // 상수 정의
                 this.CONSTANTS = {
-                    DEFAULT_MAX_MESSAGES: 20,
+                    DEFAULT_MAX_MESSAGES: 5,
                     DEFAULT_MESSAGE_TIMEOUT: 30,
                     DEFAULT_MAX_RECONNECT_ATTEMPTS: 5,
-                    DEFAULT_MAX_NICKNAME_LENGTH: 20,
+                    DEFAULT_MAX_NICKNAME_LENGTH: 5,
                     STORAGE_PREFIX: 'chat-'
                 };
                 

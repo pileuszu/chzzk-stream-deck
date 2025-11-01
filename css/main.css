@@ -7,10 +7,11 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: #0f0f0f;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0a0a1a 100%);
     color: #ffffff;
     line-height: 1.6;
     overflow-x: hidden;
+    min-height: 100vh;
 }
 
 .dashboard-container {
@@ -27,17 +28,33 @@ body {
 }
 
 .dashboard-header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #8b5cf6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
+    background-clip: text;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.dashboard-header h1 i {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: pulse 2s ease-in-out infinite;
 }
 
 .subtitle {
-    color: #888;
-    font-size: 1rem;
+    color: #a0a0a0;
+    font-size: 1.1rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
 }
 
 /* 애니메이션 */
@@ -90,6 +107,17 @@ body {
     20% { opacity: 1; transform: translateY(0); }
     80% { opacity: 1; transform: translateY(0); }
     100% { opacity: 0; transform: translateY(-10px); }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
 }
 
 /* 스크롤바 스타일 */

@@ -60,11 +60,12 @@
 
     // 채팅 설정
     const CHAT_CONFIG = {
-        DEFAULT_MAX_MESSAGES: 50,
+        DEFAULT_MAX_MESSAGES: 5,
         MIN_MESSAGES: 10,
         MAX_MESSAGES: 100,
         DEFAULT_FADE_TIME: 0,
         MAX_FADE_TIME: 300,
+        DEFAULT_MAX_NICKNAME_LENGTH: 5,
         STATUS_CHECK_INTERVAL: 5000, // ms
         RECONNECT_DELAY: 500, // ms
         PROCESS_START_WAIT_TIME: 2000, // ms
@@ -127,7 +128,8 @@
             platform: 'chzzk',
             maxMessages: CHAT_CONFIG.DEFAULT_MAX_MESSAGES,
             alignment: 'default',
-            fadeTime: CHAT_CONFIG.DEFAULT_FADE_TIME
+            fadeTime: CHAT_CONFIG.DEFAULT_FADE_TIME,
+            maxNicknameLength: CHAT_CONFIG.DEFAULT_MAX_NICKNAME_LENGTH
         }
     };
 

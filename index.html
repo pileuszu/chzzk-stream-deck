@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS 위젯 대시보드</title>
+    <title>CHZZK Stream Deck</title>
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/themes.css">
@@ -12,7 +12,7 @@
 <body>
     <div class="dashboard-container">
         <header class="dashboard-header">
-            <h1><i class="fas fa-th"></i> OBS 위젯 대시보드</h1>
+            <h1><i class="fas fa-stream"></i> CHZZK Stream Deck</h1>
             <p class="subtitle">각 모듈을 클릭하여 활성화/비활성화할 수 있습니다</p>
 
         </header>
@@ -82,11 +82,11 @@
                         <h3>채팅 표시 설정</h3>
                         <div class="setting-item">
                             <label for="chat-max-messages">최대 메시지 수</label>
-                            <input type="number" id="chat-max-messages" min="10" max="100" value="50">
+                            <input type="number" id="chat-max-messages" min="1" max="100" value="5">
                         </div>
                         <div class="setting-item">
                             <label for="chat-max-nickname-length">닉네임 최대 길이</label>
-                            <input type="number" id="chat-max-nickname-length" min="1" max="50" value="20">
+                            <input type="number" id="chat-max-nickname-length" min="1" max="50" value="5">
                         </div>
                         <div class="setting-item">
                             <label for="chat-fade-time">메시지 유지 시간 (초)
@@ -130,30 +130,8 @@
     <script src="js/main.js"></script>
     
     <script>
-        // 전역 함수들
-        let app;
-        
-        window.addEventListener('DOMContentLoaded', () => {
-            app = new App();
-            window.app = app;
-        });
-        
-        // 설정 관련 함수
-        function openSettings(moduleName) {
-            app.uiManager.openSettings(moduleName);
-        }
-        
-        function closeSettings() {
-            app.uiManager.closeSettings();
-        }
-        
-        function saveSettings() {
-            app.uiManager.saveSettings();
-        }
-        
-        function copyToClipboard(elementId) {
-            app.uiManager.copyToClipboard(elementId);
-        }
+        // 전역 함수들은 js/main.js에서 이미 정의됨
+        // window.openSettings, window.closeSettings, window.saveSettings, window.copyToClipboard
     </script>
 </body>
 </html> 

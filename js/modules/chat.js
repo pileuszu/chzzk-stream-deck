@@ -17,6 +17,12 @@ class ChatModule {
             const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
             const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
             const response = await fetch(`${baseUrl}${statusEndpoint}`);
+            
+            if (!response.ok) {
+                // 서버가 응답하지 않으면 무시
+                return;
+            }
+            
             const result = await response.json();
             
             if (result.success && result.status.chat?.active) {
@@ -27,7 +33,8 @@ class ChatModule {
                 console.log('채팅 모듈이 이미 실행 중입니다.');
             }
         } catch (error) {
-            // 서버가 실행되지 않은 경우 무시
+            // 서버가 실행되지 않은 경우 무시 (조용히 실패)
+            console.debug('초기 상태 확인 실패 (정상):', error.message);
         }
     }
     
@@ -41,37 +48,75 @@ class ChatModule {
         
         this.channelId = settings.channelId;
         
-        try {
-            const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
-            const startEndpoint = window.APP_CONFIG?.API?.CHAT_START || '/api/chat/start';
-            const contentType = window.APP_CONFIG?.HTTP_HEADERS?.CONTENT_TYPE_JSON || 'application/json';
-            const response = await fetch(`${baseUrl}${startEndpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': contentType },
-                body: JSON.stringify({ channelId: this.channelId })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.isActive = true;
-                this.startStatusMonitoring();
-                console.log('채팅 연결');
-                this.showSuccess('채팅 모듈이 터미널에서 시작되었습니다.');
-                return true;
-            } else {
-                throw new Error(result.error || '백엔드 서버 연결 실패');
+        // 서버가 준비될 때까지 대기 (최대 10초)
+        const maxRetries = 20;
+        const retryDelay = 500; // 500ms
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+                const startEndpoint = window.APP_CONFIG?.API?.CHAT_START || '/api/chat/start';
+                const contentType = window.APP_CONFIG?.HTTP_HEADERS?.CONTENT_TYPE_JSON || 'application/json';
+                
+                // 타임아웃을 위한 AbortController 사용
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const response = await fetch(`${baseUrl}${startEndpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': contentType },
+                    body: JSON.stringify({ channelId: this.channelId }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.isActive = true;
+                    this.startStatusMonitoring();
+                    console.log('채팅 연결');
+                    this.showSuccess('채팅 모듈이 터미널에서 시작되었습니다.');
+                    return true;
+                } else {
+                    throw new Error(result.error || '채팅 모듈 시작에 실패했습니다.');
+                }
+            } catch (error) {
+                // 연결 거부 또는 네트워크 오류인 경우 재시도
+                const isConnectionError = error.name === 'AbortError' || 
+                                         error.message.includes('fetch') || 
+                                         error.message.includes('Failed to fetch') || 
+                                         error.message.includes('ERR_CONNECTION_REFUSED') ||
+                                         error.message.includes('NetworkError');
+                
+                if (isConnectionError && attempt < maxRetries - 1) {
+                    // 재시도 전 대기
+                    console.log(`서버 연결 시도 ${attempt + 1}/${maxRetries}...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    continue;
+                }
+                
+                // 마지막 시도이거나 다른 오류인 경우
+                console.error('CHZZK 채팅 모듈 시작 실패:', error);
+                
+                let errorMsg = error.message;
+                if (isConnectionError) {
+                    errorMsg = '백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요. 잠시 후 다시 시도해주세요.';
+                } else if (error.message.includes('HTTP')) {
+                    errorMsg = `서버 오류: ${error.message}`;
+                }
+                
+                this.showError(`채팅 모듈 시작 실패: ${errorMsg}`);
+                return false;
             }
-        } catch (error) {
-            console.error('CHZZK 채팅 모듈 시작 실패:', error);
-            
-            const errorMsg = error.message.includes('fetch')
-                ? '백엔드 서버가 실행되지 않았습니다. npm start로 서버를 먼저 시작해주세요.'
-                : error.message;
-            
-            this.showError(`채팅 모듈 시작 실패: ${errorMsg}`);
-            return false;
         }
+        
+        return false;
     }
     
     async stop() {

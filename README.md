@@ -1,115 +1,177 @@
-# ChzzkStreamDeck v2.0
+# CHZZK Stream Deck v2.0
 
-**CHZZK Streaming Widget System**
+**Real-time Chat Widget Management System for CHZZK Streaming**
 
-A comprehensive streaming widget system for OBS Studio with real-time chat overlay, Spotify integration, and music bot functionality.
-
-## Features
-
-### Core Modules
-- **Chat Module**: Real-time CHZZK chat integration with WebSocket connection
-- **Spotify Module**: Music information display and playback control
-- **Music Bot**: Chat command-based Spotify control system
-- **Server-based Token Management**: Centralized token sharing between dashboard and OBS browser sources
-
-### Chat System
-- Real-time chat overlay with SSE (Server-Sent Events)
-- CHZZK emoticon support
-- Customizable message display duration
-- Multiple alignment options (left, center, right)
-- Automatic message cleanup and fade effects
-- Theme support (Simple Purple, Neon Green)
-
-### Spotify Integration
-- OAuth 2.0 Authorization Code Flow authentication
-- Current track information display
-- Playback control (play/pause, next, previous)
-- Queue management through chat commands
-- Server-based token storage for OBS compatibility
-
-### Music Bot Commands
-- `!노래추가 [keyword]` - Add song to Spotify queue
-- `!건너뛰기` - Skip current track
-- `!현재곡` - Show current playing track
-- `!대기열` - Display upcoming tracks
+A real-time chat widget management system for CHZZK streaming, featuring an Electron-based desktop application that works seamlessly with OBS Studio.
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Method 1: Run Electron App (Recommended)
+
+1. **Install Dependencies**
 ```bash
 npm install
 ```
 
-### 2. Start Server
+2. **Run Electron App**
 ```bash
-node server.js
+npm run app
+```
+The app will automatically start the server and open a browser window.
+
+### Method 2: Run in Web Browser
+
+1. **Install Dependencies**
+```bash
+npm install
 ```
 
-### 3. Access Dashboard
-- **Main Dashboard**: http://localhost:7112
+2. **Start Server**
+```bash
+npm start
+```
+
+3. **Access Dashboard**
+- **Main Dashboard**: http://localhost:7112 (or the port set in config.json)
 - **Chat Overlay**: http://localhost:7112/chat-overlay.html
-- **Spotify Widget**: http://localhost:7112/spotify-widget.html
+
+### Configuration File (config.json)
+
+You can create a `config.json` file in the project root to configure the port and host:
+
+```json
+{
+  "port": 7112,
+  "host": "localhost"
+}
+```
+
+The default port is 7112.
+
+## Build and Deployment
+
+### Build Windows Executable
+
+1. **Run Build**
+```bash
+npm run build:win
+```
+
+2. **Build Artifacts**
+- `dist/CHZZK Stream Deck Setup x.x.x.exe` - Installer
+- `dist/win-unpacked/` - Portable executable (no installation required)
+
+3. **Run**
+Double-click `dist/win-unpacked/CHZZK Stream Deck.exe` to run the application.
+
+### CI/CD Automated Build
+
+This project supports automated builds using GitHub Actions:
+
+- **Automatic Build**: Pushing to the `main` branch automatically triggers a Windows build
+- **Release Creation**: Pushing a version tag (`v2.0.0`) automatically creates a release
+- **Build Artifacts**: Download built files from the GitHub Actions tab
+
+For more details, see [.github/workflows/README.md](.github/workflows/README.md).
 
 ## Project Structure
 
 ```
-ChzzkStreamDeck/
-├── src/
-│   ├── chat-client.js           # CHZZK chat client
-│   ├── chat-overlay.html        # Chat overlay for OBS
-│   └── spotify-widget.html      # Spotify widget for OBS
-├── js/
-│   ├── modules/
-│   │   ├── chat.js              # Chat module
-│   │   ├── spotify.js           # Spotify module
-│   │   └── musicbot.js          # Music bot module
-│   ├── utils/
-│   │   ├── settings.js          # Settings management
-│   │   └── ui.js                # UI utilities
-│   └── main.js                  # Main application
+chzzk-stream-deck/
+├── .github/
+│   └── workflows/               # CI/CD workflows
+│       ├── build.yml            # Automated build workflow
+│       ├── build-release.yml    # Release build workflow
+│       └── test.yml             # Test workflow
+├── assets/
+│   └── images/                  # Image resources
 ├── css/
 │   ├── components.css           # Component styles
 │   ├── main.css                 # Main styles
 │   └── themes.css               # Theme definitions
-├── server.js                    # Main backend server
+├── dist/                        # Build output (auto-generated)
+├── js/
+│   ├── config/
+│   │   └── constants.js         # Application constants
+│   ├── modules/
+│   │   └── chat.js              # Chat module
+│   ├── utils/
+│   │   ├── settings.js          # Settings management
+│   │   └── ui.js                # UI utilities
+│   └── main.js                  # Main application
+├── scripts/
+│   ├── clear-cache.js           # Cache clearing script
+│   └── kill-electron.js         # Electron process termination
+├── src/
+│   ├── chat-client.js           # CHZZK chat client
+│   └── chat-overlay.html        # Chat overlay for OBS
+├── main.js                      # Electron main process
+├── server.js                    # Backend server
 ├── index.html                   # Main dashboard
+├── config.json                  # Server configuration file
 └── package.json                 # Project configuration
 ```
 
-## Configuration
+## Configuration and Usage
+
+### Server Configuration (config.json)
+
+Create or modify the `config.json` file in the project root to configure server port and host:
+
+```json
+{
+  "port": 7112,
+  "host": "localhost"
+}
+```
+
+**Note**: 
+- The Electron app automatically reads this configuration file on launch
+- In built apps, `config.json` in the same directory as the executable takes priority
 
 ### Chat Module Setup
-1. Open dashboard at http://localhost:7112
-2. Enter CHZZK Channel ID (32-character alphanumeric)
-3. Configure display settings (theme, duration, alignment)
-4. Click "Start Chat" to begin monitoring
 
-### Spotify Module Setup
-1. Create Spotify application at https://developer.spotify.com/dashboard
-2. Set redirect URI to `http://localhost:7112/spotify/callback`
-3. Enter Client ID and Client Secret in dashboard
-4. Click "Authenticate" to complete OAuth flow
-5. Ensure Spotify Premium account for full functionality
+1. **Open Dashboard**
+   - Electron App: Opens automatically
+   - Web Browser: Navigate to http://localhost:7112
 
-### Music Bot Setup
-1. Ensure both Chat and Spotify modules are active
-2. Enable Music Bot in dashboard
-3. Customize command keywords if needed
-4. Music bot will automatically respond to chat commands
+2. **Enter Channel ID**
+   - Enter the 32-character alphanumeric combination found at the end of your CHZZK channel URL
+   - Example: `42597020c1a79fb151bd9b9beaa9779b`
+
+3. **Configure Display Settings**
+   - Select theme (Simple Purple, etc.)
+   - Set message display duration
+   - Choose alignment (default/left/right/center)
+   - Set maximum nickname length
+
+4. **Start Chat Module**
+   - Toggle the switch to start the chat module
+   - The chat client will automatically run in the terminal
 
 ## OBS Integration
 
-### Chat Overlay
-1. Add Browser Source in OBS
-2. Set URL: `http://localhost:7112/chat-overlay.html`
-3. Dimensions: 400x600px recommended
-4. CSS: `body { background: transparent !important; }`
+### Chat Overlay Setup
 
-### Spotify Widget
-1. Add Browser Source in OBS
-2. Set URL: `http://localhost:7112/spotify-widget.html`
-3. Dimensions: 300x100px recommended
-4. Widget automatically syncs with dashboard authentication
+1. **Add Browser Source in OBS**
+   - Open OBS Studio
+   - Add "Browser Source" from the sources list
+
+2. **Configure URL**
+   - URL: `http://localhost:7112/chat-overlay.html` (or your configured port)
+   - Width: 400px (recommended)
+   - Height: 600px (recommended)
+
+3. **CSS Settings (Optional)**
+   ```css
+   body { 
+     background: transparent !important; 
+   }
+   ```
+
+4. **Refresh Settings**
+   - Click "Refresh Browser" button to verify
+   - Enable "Shutdown source when not visible" if needed
 
 ## API Endpoints
 
@@ -119,34 +181,29 @@ ChzzkStreamDeck/
 - `GET /api/chat/stream` - Real-time chat stream (SSE)
 - `GET /api/chat/messages` - Retrieve chat messages
 
-### Spotify Management
-- `GET /api/spotify/token` - Check token status
-- `POST /api/spotify/token` - Save authentication token
-- `DELETE /api/spotify/token` - Clear authentication token
-- `POST /api/spotify/refresh` - Refresh access token
-- `GET /api/spotify/current-track` - Get current playing track
-- `POST /api/spotify/next` - Skip to next track
-- `POST /api/spotify/previous` - Skip to previous track
-- `POST /api/spotify/play` - Toggle play/pause
-
 ### Server Status
 - `GET /api/status` - Get server and module status
+- `GET /api/config` - Get server configuration information
+
+### Pages
+- `GET /` - Main dashboard
+- `GET /chat-overlay.html` - Chat overlay for OBS
 
 ## Requirements
 
 ### System Requirements
-- Node.js 14.0.0 or higher
-- npm 6.0.0 or higher
-- Modern browser with ES6+ support
-
-### Spotify Requirements
-- Spotify Premium account (required for queue management)
-- Active Spotify device (app must be playing music)
-- Valid Spotify Developer application
+- **Node.js**: 14.0.0 or higher (for development)
+- **npm**: 6.0.0 or higher
+- **Windows**: Windows 10 or higher (for running built app)
+- **Browser**: Modern browser with ES6+ support (for web mode)
 
 ### CHZZK Requirements
 - Valid CHZZK channel ID
 - Active live stream for real-time chat
+
+### Build Requirements
+- Node.js 18 or higher (for CI/CD builds)
+- Windows build: Windows environment or GitHub Actions
 
 ## Theme System
 
@@ -156,82 +213,103 @@ ChzzkStreamDeck/
 - Hover effects and transitions
 - Multi-layer shadows and glow effects
 
-### Neon Green
-- Cyberpunk-style neon green theme
-- Glowing effects and animations
-- High contrast design
+This is the default supported theme.
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### "App update required for normal viewing"
-- **Cause**: Stream is not live or incorrect channel ID
-- **Solution**: Verify channel ID of active live stream
+#### Server Connection Failed (ERR_CONNECTION_REFUSED)
+- **Cause**: Server not started or port conflict
+- **Solution**:
+  1. Using Electron App: The app automatically starts the server, wait a moment and retry
+  2. Web Mode: Verify server is running with `npm start`
+  3. Port Conflict: Use a different port in `config.json` or terminate existing processes
+  4. Press F12 to open DevTools and check console for detailed errors
 
-#### Chat messages not appearing
+#### Chat Module Start Failed
+- **Cause**: Server not ready yet or channel ID error
+- **Solution**:
+  1. Wait a few seconds after app launch before retrying (automatic retry logic included)
+  2. Verify channel ID is correct (32-character alphanumeric)
+  3. Confirm CHZZK channel is live
+  4. Check error messages in DevTools console
+
+#### CSS Not Loading (Built App)
+- **Cause**: Static file path issue
+- **Solution**:
+  1. Use latest build files
+  2. Ensure you're using the entire `dist/win-unpacked` folder
+  3. Open DevTools with F12 and check Network tab for CSS file loading
+
+#### Build Failure
+- **Cause**: Windows Developer Mode disabled or port conflict
+- **Solution**:
+  1. Windows 11: Settings → Privacy & Security → For developers → Enable Developer Mode
+  2. Or use CI/CD to build automatically via GitHub Actions
+  3. Terminate running Electron processes before rebuilding
+
+#### Chat Messages Not Appearing
 - **Cause**: Server connection issues or API limitations
-- **Solution**: 
+- **Solution**:
   1. Check server status at `/api/status`
-  2. Verify browser console for errors
-  3. Confirm firewall settings
-
-#### Spotify authentication fails
-- **Cause**: Incorrect client credentials or callback URL
-- **Solution**:
-  1. Verify Client ID and Client Secret
-  2. Ensure redirect URI matches dashboard settings
-  3. Check popup blocker settings
-
-#### Music bot commands not working
-- **Cause**: Missing Premium account or inactive device
-- **Solution**:
-  1. Upgrade to Spotify Premium
-  2. Start music playback in Spotify app
-  3. Verify authentication in dashboard
-
-#### Queue management fails (403 error)
-- **Cause**: Spotify Premium required or no active device
-- **Solution**:
-  1. Ensure Premium account subscription
-  2. Open Spotify app and start playing music
-  3. Verify device is active and visible
+  2. Check browser console for errors
+  3. Verify firewall settings
+  4. Confirm chat module is enabled
 
 ## Development
 
 ### Running in Development Mode
+
 ```bash
-# Start server with debugging
-node server.js
+# Run Electron app (recommended)
+npm run app
 
-# Run chat client directly
+# Or run server only
+npm start
+
+# Development server (uses nodemon, auto-restarts on file changes)
+npm run dev
+
+# Run chat client directly (for testing)
 node src/chat-client.js <CHANNEL_ID>
+```
 
-# Enable verbose logging
-node src/chat-client.js <CHANNEL_ID> --verbose
+### Build Scripts
+
+```bash
+# Build for Windows
+npm run build:win
+
+# Build portable version
+npm run build:win:portable
+
+# Auto-terminate Electron processes before build
+npm run prebuild:win
 ```
 
 ### Module Development
-Each module is independently developed and can be extended:
-- Chat Module: `js/modules/chat.js`
-- Spotify Module: `js/modules/spotify.js`
-- Music Bot Module: `js/modules/musicbot.js`
 
-## Contributing
+Each module is developed independently and can be extended:
+- **Chat Module**: `js/modules/chat.js`
+- **UI Management**: `js/utils/ui.js`
+- **Settings Management**: `js/utils/settings.js`
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/NewFeature`)
-3. Commit changes (`git commit -m 'Add NewFeature'`)
-4. Push to branch (`git push origin feature/NewFeature`)
-5. Create Pull Request
+### Debugging
 
-## Acknowledgments
+In built app:
+- **F12**: Open DevTools (works in built app)
+- **Ctrl+Shift+I**: Open DevTools (alternative shortcut)
 
-- CHZZK API for real-time chat data
-- Spotify Web API for music integration
-- OBS Studio for streaming capabilities
-- Node.js community for excellent ecosystem
+In development mode:
+- Check console logs
+- Verify API calls in Network tab
+- Server logs can be viewed in Electron console
+
+## License
+
+MIT License
 
 ---
 
-For technical support and bug reports, please create an issue in the repository. 
+For technical support and bug reports, please create an issue in the repository.

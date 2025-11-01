@@ -15,19 +15,66 @@ const fs = require('fs');
 // 설정 파일 로드
 function loadConfig() {
     try {
-        const configPath = path.join(__dirname, 'config.json');
+        let configPath;
+        
+        // 먼저 __dirname에서 찾기 (개발 모드 및 일반 Node.js 실행)
+        const devConfigPath = path.join(__dirname, 'config.json');
+        if (fs.existsSync(devConfigPath)) {
+            configPath = devConfigPath;
+            console.log(`[설정] __dirname에서 발견: ${configPath}`);
+        } else {
+            // Electron 앱이 패키징된 경우 실행 파일 위치에서 찾기
+            if (process.resourcesPath) {
+                try {
+                    const { app } = require('electron');
+                    if (app && app.isPackaged) {
+                        // 프로덕션 모드: 실행 파일과 같은 위치의 config.json 우선
+                        const execPath = app.getPath('exe');
+                        const execDir = path.dirname(execPath);
+                        const execConfigPath = path.join(execDir, 'config.json');
+                        
+                        if (fs.existsSync(execConfigPath)) {
+                            configPath = execConfigPath;
+                            console.log(`[설정] 실행 파일 위치에서 발견: ${configPath}`);
+                        } else {
+                            // 없으면 extraResources로 복사된 config.json 사용
+                            const resourcesConfigPath = path.join(process.resourcesPath, 'config.json');
+                            if (fs.existsSync(resourcesConfigPath)) {
+                                configPath = resourcesConfigPath;
+                                console.log(`[설정] resourcesPath에서 발견: ${configPath}`);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Electron이 없는 경우 무시
+                }
+            }
+        }
+        
+        // 여전히 configPath가 없으면 __dirname 사용 (기본값)
+        if (!configPath) {
+            configPath = path.join(__dirname, 'config.json');
+            console.log(`[설정] 기본 경로 시도: ${configPath}`);
+        }
+        
         if (fs.existsSync(configPath)) {
             const configData = fs.readFileSync(configPath, 'utf8');
-            return JSON.parse(configData);
+            const config = JSON.parse(configData);
+            console.log(`✓ 설정 파일 로드 완료: ${configPath}`, config);
+            return config;
+        } else {
+            console.warn(`경고: ${configPath} 파일이 없습니다. 기본값을 사용합니다.`);
         }
     } catch (error) {
         console.warn('config.json 파일을 읽을 수 없습니다. 기본값을 사용합니다.', error.message);
     }
     // 기본값 반환
-    return {
+    const defaultConfig = {
         port: 7112,
         host: 'localhost'
     };
+    console.log(`[설정] 기본값 사용:`, defaultConfig);
+    return defaultConfig;
 }
 
 const config = loadConfig();
@@ -92,23 +139,82 @@ class ChzzkStreamDeckServer {
     setupMiddleware() {
         this.app.use(cors());
         this.app.use(express.json());
-        this.app.use(express.static('.'));
+        
+        // 정적 파일 서빙 경로 설정 (빌드 환경에 맞게)
+        let staticPath = __dirname;
+        
+        // Electron 패키징된 경우 resources/app 경로 사용
+        // process.resourcesPath는 패키징된 앱에서만 존재
+        if (process.resourcesPath) {
+            staticPath = path.join(process.resourcesPath, 'app');
+            console.log(`[빌드 모드] process.resourcesPath: ${process.resourcesPath}`);
+        }
+        
+        console.log(`[정적 파일] __dirname: ${__dirname}`);
+        console.log(`[정적 파일] staticPath: ${staticPath}`);
+        
+        // 경로 존재 여부 확인 후 정적 파일 서빙
+        if (fs.existsSync(staticPath)) {
+            this.app.use(express.static(staticPath));
+            console.log(`✓ 정적 파일 경로 설정 완료: ${staticPath}`);
+        } else {
+            // 폴백: __dirname 사용
+            console.warn(`경고: ${staticPath} 경로가 존재하지 않습니다. __dirname 사용: ${__dirname}`);
+            this.app.use(express.static(__dirname));
+        }
     }
 
     /**
      * 라우트 설정
      */
     setupRoutes() {
+        // 정적 파일 경로와 동일한 기준으로 index.html 경로 결정
+        let staticPath = __dirname;
+        if (process.resourcesPath) {
+            staticPath = path.join(process.resourcesPath, 'app');
+        }
+        
+        console.log(`[라우트] staticPath: ${staticPath}`);
+        
         // 홈 페이지
         this.app.get('/', (req, res) => {
-            res.sendFile(path.join(__dirname, 'index.html'));
+            const indexPath = path.join(staticPath, 'index.html');
+            console.log(`[라우트] index.html 요청, 경로: ${indexPath}`);
+            
+            if (fs.existsSync(indexPath)) {
+                console.log(`✓ index.html 파일 발견: ${indexPath}`);
+                res.sendFile(indexPath);
+            } else {
+                // 폴백: __dirname 사용
+                const fallbackPath = path.join(__dirname, 'index.html');
+                console.warn(`경고: ${indexPath} 파일이 없습니다. 폴백 사용: ${fallbackPath}`);
+                if (fs.existsSync(fallbackPath)) {
+                    res.sendFile(fallbackPath);
+                } else {
+                    res.status(404).send('index.html 파일을 찾을 수 없습니다.');
+                }
+            }
         });
 
 
 
         // 채팅 오버레이 페이지
         this.app.get('/chat-overlay.html', (req, res) => {
-            res.sendFile(path.join(__dirname, 'src/chat-overlay.html'));
+            const overlayPath = path.join(staticPath, 'src', 'chat-overlay.html');
+            console.log(`[라우트] chat-overlay.html 요청, 경로: ${overlayPath}`);
+            
+            if (fs.existsSync(overlayPath)) {
+                res.sendFile(overlayPath);
+            } else {
+                // 폴백: __dirname 사용
+                const fallbackPath = path.join(__dirname, 'src', 'chat-overlay.html');
+                console.warn(`경고: ${overlayPath} 파일이 없습니다. 폴백 사용: ${fallbackPath}`);
+                if (fs.existsSync(fallbackPath)) {
+                    res.sendFile(fallbackPath);
+                } else {
+                    res.status(404).send('chat-overlay.html 파일을 찾을 수 없습니다.');
+                }
+            }
         });
 
         // SSE 스트림 엔드포인트
@@ -223,10 +329,34 @@ class ChzzkStreamDeckServer {
         
         console.log(`채팅 모듈 시작 - 채널: ${channelId.substring(0, 8)}...`);
         
+        // 채팅 클라이언트 실행 경로 설정
+        let chatClientPath = path.join(__dirname, 'src', 'chat-client.js');
+        
+        // 빌드된 앱에서는 process.resourcesPath 사용
+        if (process.resourcesPath) {
+            const resourcesClientPath = path.join(process.resourcesPath, 'app', 'src', 'chat-client.js');
+            if (fs.existsSync(resourcesClientPath)) {
+                chatClientPath = resourcesClientPath;
+                console.log(`[빌드 모드] 채팅 클라이언트 경로: ${chatClientPath}`);
+            }
+        }
+        
+        // 작업 디렉토리 설정
+        let cwd = __dirname;
+        if (process.resourcesPath) {
+            const resourcesAppPath = path.join(process.resourcesPath, 'app');
+            if (fs.existsSync(resourcesAppPath)) {
+                cwd = resourcesAppPath;
+            }
+        }
+        
+        console.log(`채팅 클라이언트 실행: node ${chatClientPath}`);
+        console.log(`작업 디렉토리: ${cwd}`);
+        
         // 채팅 클라이언트 실행
-        const chatProcess = spawn('node', ['src/chat-client.js', channelId], {
+        const chatProcess = spawn('node', [chatClientPath, channelId], {
             stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: process.cwd()
+            cwd: cwd
         });
         
         this.processes.chat = chatProcess;
@@ -412,11 +542,18 @@ class ChzzkStreamDeckServer {
 
     /**
      * 서버 시작
+     * 주의: Electron에서 직접 listen을 호출하지 않고, main.js에서 관리합니다.
      */
     start() {
-        this.app.listen(this.port, this.host, () => {
-            this.printStartupInfo();
-        });
+        // 이미 시작된 경우 중복 호출 방지
+        if (this.serverInstance) {
+            console.log('서버가 이미 시작되었습니다.');
+            return;
+        }
+        
+        // 기본 start() 메서드는 Electron에서 직접 listen을 호출하지 않음
+        // main.js에서 serverInstance를 직접 관리
+        console.log('서버 인스턴스 준비 완료 (main.js에서 listen 호출 예정)');
     }
 
     /**
@@ -432,7 +569,14 @@ class ChzzkStreamDeckServer {
      * 서버 종료
      */
     shutdown() {
-        console.log('서버 종료');
+        console.log('서버 종료 중...');
+        
+        // 서버 인스턴스 종료
+        if (this.serverInstance) {
+            this.serverInstance.close(() => {
+                console.log('서버 인스턴스 종료 완료');
+            });
+        }
         
         // 모든 프로세스 정리
         if (this.processes.chat) {
@@ -447,8 +591,6 @@ class ChzzkStreamDeckServer {
                 // 무시
             }
         });
-        
-        process.exit(0);
     }
 
     // 유틸리티 메서드
@@ -457,6 +599,11 @@ class ChzzkStreamDeckServer {
     }
 }
 
-// 서버 인스턴스 생성 및 시작
-const server = new ChzzkStreamDeckServer();
-server.start(); 
+// 서버 인스턴스 생성 및 시작 (직접 실행 시에만)
+if (require.main === module) {
+    const server = new ChzzkStreamDeckServer();
+    server.start();
+}
+
+// Electron에서 사용할 수 있도록 export
+module.exports = ChzzkStreamDeckServer; 

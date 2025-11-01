@@ -7,10 +7,10 @@ class SettingsManager {
             chat: {
                 theme: 'simple-purple',
                 channelId: '',
-                maxMessages: 50,
+                maxMessages: 5,
                 alignment: 'default',
                 fadeTime: 0,
-                maxNicknameLength: 20
+                maxNicknameLength: 5
             }
         };
         this.settings = defaultSettings;
@@ -70,7 +70,7 @@ class SettingsManager {
             'chat-alignment': settings.alignment,
             'chat-fade-time': settings.fadeTime,
             'chat-theme-select': settings.theme,
-            'chat-max-nickname-length': settings.maxNicknameLength || 20
+            'chat-max-nickname-length': settings.maxNicknameLength || 5
         };
         
         Object.entries(elements).forEach(([id, value]) => {
@@ -84,8 +84,9 @@ class SettingsManager {
     saveModalSettings(moduleName) {
         if (moduleName !== 'chat') return;
         
-        const defaultMaxMessages = window.APP_CONFIG?.CHAT?.DEFAULT_MAX_MESSAGES || 50;
+        const defaultMaxMessages = window.APP_CONFIG?.CHAT?.DEFAULT_MAX_MESSAGES || 5;
         const defaultFadeTime = window.APP_CONFIG?.CHAT?.DEFAULT_FADE_TIME || 0;
+        const defaultMaxNicknameLength = window.APP_CONFIG?.CHAT?.DEFAULT_MAX_NICKNAME_LENGTH || 5;
         
         const newSettings = {
             theme: this.getElementValue('chat-theme-select'),
@@ -93,7 +94,7 @@ class SettingsManager {
             maxMessages: parseInt(this.getElementValue('chat-max-messages')) || defaultMaxMessages,
             alignment: this.getElementValue('chat-alignment'),
             fadeTime: parseInt(this.getElementValue('chat-fade-time')) || defaultFadeTime,
-            maxNicknameLength: parseInt(this.getElementValue('chat-max-nickname-length')) || 20
+            maxNicknameLength: parseInt(this.getElementValue('chat-max-nickname-length')) || defaultMaxNicknameLength
         };
         
         this.updateModuleSettings('chat', newSettings);

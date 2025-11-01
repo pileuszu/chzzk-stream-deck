@@ -1,11 +1,17 @@
 {
   "name": "chzzk-stream-deck",
   "version": "2.0.0",
-  "description": "OBS용 치지직 스트림 위젯 대시보드",
-  "main": "index.html",
+  "description": "CHZZK Stream Deck - 치지직 스트리밍을 위한 실시간 채팅 위젯 관리 시스템",
+  "main": "main.js",
   "scripts": {
     "start": "node server.js",
+    "app": "electron .",
     "dev": "nodemon server.js",
+    "build": "electron-builder",
+    "prebuild:win": "node scripts/kill-electron.js && node scripts/clear-cache.js && rm -rf dist || true",
+    "build:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
+    "build:win:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
+    "dist": "electron-builder --publish=never",
     "chat-test": "node test/chzzk-chat-terminal.js",
     "api-test": "node test/chzzk-api-test.js",
     "channel-info": "node test/chzzk-channel-info.js",
@@ -27,7 +33,55 @@
     "socket.io-client": "^4.8.1",
     "ws": "^8.14.2"
   },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "cross-env": "^7.0.3"
+  },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "build": {
+    "appId": "com.chzzk.streamdeck",
+    "productName": "CHZZK Stream Deck",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!dist/**/*",
+      "!test/**/*",
+      "!*.md",
+      "!*.git*",
+      "!build/**/*"
+    ],
+    "asar": false,
+    "extraFiles": [
+      {
+        "from": "config.json",
+        "to": "config.json"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "sign": null,
+      "verifyUpdateCodeSignature": false,
+      "signingHashAlgorithms": [],
+      "signDlls": false,
+      "publisherName": []
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CHZZK Stream Deck"
+    }
   }
 }
