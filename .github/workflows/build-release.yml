@@ -15,6 +15,9 @@ jobs:
   build-all:
     name: Build All Platforms
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write  # 릴리스 생성을 위한 권한
+      artifacts: read  # 아티팩트 읽기 권한
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +70,15 @@ jobs:
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
+          body: |
+            ## CHZZK Stream Deck ${{ github.ref_name }}
+            
+            ### Changes
+            - Automated build from tag ${{ github.ref_name }}
+            - Windows executable included
+            
+            ### Installation
+            Download the `.exe` file and run it. No installation required.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

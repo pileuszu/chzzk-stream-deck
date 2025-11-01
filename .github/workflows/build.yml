@@ -19,6 +19,9 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
+    permissions:
+      contents: write  # 릴리스 생성을 위한 권한
+      artifacts: read  # 아티팩트 읽기 권한
     
     steps:
       - name: Checkout code
@@ -51,18 +54,6 @@ jobs:
             dist/win-unpacked/**/*
           retention-days: 30
       
-      - name: Create Release (only on main branch)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            dist/*.exe
-            dist/win-unpacked/CHZZK Stream Deck.exe
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 릴리스는 태그를 푸시할 때만 생성됩니다 (build-release.yml 사용)
+      # 빌드 아티팩트는 위의 Upload 단계에서 업로드됩니다
 

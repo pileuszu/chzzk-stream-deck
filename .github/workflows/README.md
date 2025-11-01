@@ -76,6 +76,18 @@ git push origin v2.0.1
 
 ## 설정
 
+### GitHub 저장소 권한 설정
+
+워크플로우가 릴리스를 생성하려면 저장소에 올바른 권한이 설정되어 있어야 합니다:
+
+1. GitHub 저장소 페이지로 이동
+2. **Settings** → **Actions** → **General** 클릭
+3. **Workflow permissions** 섹션에서:
+   - **Read and write permissions** 선택
+   - 또는 **Read and write permissions** + **Allow GitHub Actions to create and approve pull requests** 선택
+
+이 설정을 하지 않으면 릴리스 생성 시 403 오류가 발생할 수 있습니다.
+
 ### 환경 변수
 워크플로우는 다음 환경 변수를 사용합니다:
 - `CSC_IDENTITY_AUTO_DISCOVERY=false`: 코드 서명 비활성화
@@ -86,6 +98,14 @@ Node.js 모듈은 자동으로 캐시되어 빌드 시간이 단축됩니다.
 
 ## 문제 해결
 
+### 릴리스 생성 실패 (403 오류)
+**증상**: `GitHub release failed with status: 403`
+
+**해결 방법**:
+1. GitHub 저장소 **Settings** → **Actions** → **General**로 이동
+2. **Workflow permissions**에서 **Read and write permissions** 선택
+3. 저장 후 워크플로우를 다시 실행
+
 ### 빌드 실패 시
 1. Actions 탭에서 실패한 워크플로우 실행 확인
 2. 로그에서 오류 메시지 확인
@@ -93,4 +113,9 @@ Node.js 모듈은 자동으로 캐시되어 빌드 시간이 단축됩니다.
 
 ### 캐시 문제
 캐시 관련 문제가 발생하면 워크플로우의 캐시 단계를 확인하거나 수동으로 캐시를 삭제하세요.
+
+### 태그가 이미 존재하는 경우
+동일한 태그로 릴리스를 다시 생성하려면:
+1. 기존 태그 삭제: `git tag -d v2.0.0 && git push origin :refs/tags/v2.0.0`
+2. 새 태그 생성 및 푸시
 
