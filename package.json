@@ -9,7 +9,7 @@
     "chat-test": "node test/chzzk-chat-terminal.js",
     "api-test": "node test/chzzk-api-test.js",
     "channel-info": "node test/chzzk-channel-info.js",
-    "test": "echo \"🎮 치지직 스트림덱 테스트 가이드\" && echo \"\" && echo \"1단계: API 연결 테스트 (필수)\" && echo \"  npm run api-test [채널ID]\" && echo \"\" && echo \"2단계: 채팅 테스트 (API 성공 후)\" && echo \"  npm run chat-test [채널ID]\" && echo \"\" && echo \"3단계: 채널 정보 전체 조회\" && echo \"  npm run channel-info [채널ID]\" && echo \"\" && echo \"예시:\" && echo \"  npm run api-test 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run channel-info 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run chat-test 789d1d9c5b58c847f9f18c8e5073c580\" && exit 0"
+    "test": "echo \"치지직 스트림덱 테스트 가이드\" && echo \"\" && echo \"1단계: API 연결 테스트 (필수)\" && echo \"  npm run api-test [채널ID]\" && echo \"\" && echo \"2단계: 채팅 테스트 (API 성공 후)\" && echo \"  npm run chat-test [채널ID]\" && echo \"\" && echo \"3단계: 채널 정보 전체 조회\" && echo \"  npm run channel-info [채널ID]\" && echo \"\" && echo \"예시:\" && echo \"  npm run api-test 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run channel-info 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run chat-test 789d1d9c5b58c847f9f18c8e5073c580\" && exit 0"
   },
   "keywords": [
     "obs",

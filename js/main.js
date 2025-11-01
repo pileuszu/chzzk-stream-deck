@@ -15,6 +15,11 @@ class App {
         this.setupEventListeners();
         this.updateModuleStates();
         this.uiManager.applyTheme('chat', this.settingsManager.getModuleSettings('chat').theme);
+        
+        // 설정 로드 후 UI 업데이트 (URL 등)
+        setTimeout(() => {
+            this.settingsManager.updateUI();
+        }, 100);
     }
     
     setupEventListeners() {

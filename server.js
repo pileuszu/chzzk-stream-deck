@@ -10,11 +10,41 @@ const express = require('express');
 const { spawn } = require('child_process');
 const path = require('path');
 const cors = require('cors');
+const fs = require('fs');
+
+// 설정 파일 로드
+function loadConfig() {
+    try {
+        const configPath = path.join(__dirname, 'config.json');
+        if (fs.existsSync(configPath)) {
+            const configData = fs.readFileSync(configPath, 'utf8');
+            return JSON.parse(configData);
+        }
+    } catch (error) {
+        console.warn('config.json 파일을 읽을 수 없습니다. 기본값을 사용합니다.', error.message);
+    }
+    // 기본값 반환
+    return {
+        port: 7112,
+        host: 'localhost'
+    };
+}
+
+const config = loadConfig();
 
 class ChzzkStreamDeckServer {
     constructor() {
         this.app = express();
-        this.port = 7112;
+        this.port = process.env.PORT || config.port;
+        this.host = config.host;
+        
+        // 상수 정의
+        this.CONFIG = {
+            MAX_MESSAGES: 50,
+            RECENT_MESSAGES_COUNT: 10,
+            PROCESS_START_WAIT_TIME: 2000, // ms
+            CHAT_PORT: 8002
+        };
         
         // 프로세스 관리
         this.processes = {
@@ -23,12 +53,12 @@ class ChzzkStreamDeckServer {
         
         // 상태 관리
         this.status = {
-            chat: { active: false, port: 8002, pid: null }
+            chat: { active: false, port: this.CONFIG.CHAT_PORT, pid: null }
         };
         
         // 채팅 메시지 저장소
         this.chatMessages = [];
-        this.maxMessages = 50;
+        this.maxMessages = this.CONFIG.MAX_MESSAGES;
         
         // SSE 연결 관리
         this.sseConnections = new Set();
@@ -36,6 +66,24 @@ class ChzzkStreamDeckServer {
         this.setupMiddleware();
         this.setupRoutes();
         this.setupProcessHandlers();
+        this.setupConfigEndpoint();
+    }
+    
+    /**
+     * 설정 엔드포인트 (프론트엔드에서 포트 정보 가져오기)
+     */
+    setupConfigEndpoint() {
+        this.app.get('/api/config', (req, res) => {
+            res.json({
+                success: true,
+                config: {
+                    port: this.port,
+                    host: this.host,
+                    baseUrl: `http://${this.host}:${this.port}`,
+                    chatOverlayUrl: `http://${this.host}:${this.port}/chat-overlay.html`
+                }
+            });
+        });
     }
 
     /**
@@ -92,8 +140,8 @@ class ChzzkStreamDeckServer {
         // 연결 추가
         this.sseConnections.add(res);
         
-        // 기존 메시지 전송 (최근 10개)
-        const recentMessages = this.chatMessages.slice(-10);
+        // 기존 메시지 전송 (최근 메시지)
+        const recentMessages = this.chatMessages.slice(-this.CONFIG.RECENT_MESSAGES_COUNT);
         recentMessages.forEach(message => {
             this.sendSSEMessage(res, message);
         });
@@ -153,7 +201,7 @@ class ChzzkStreamDeckServer {
             }
             
         } catch (error) {
-            console.error('💥 채팅 액션 오류:', error);
+            console.error('채팅 액션 오류:', error);
             res.json({ 
                 success: false, 
                 error: error.message 
@@ -173,7 +221,7 @@ class ChzzkStreamDeckServer {
             throw new Error('채널 ID가 필요합니다.');
         }
         
-        console.log(`🚀 채팅 모듈 시작 - 채널: ${channelId.substring(0, 8)}...`);
+        console.log(`채팅 모듈 시작 - 채널: ${channelId.substring(0, 8)}...`);
         
         // 채팅 클라이언트 실행
         const chatProcess = spawn('node', ['src/chat-client.js', channelId], {
@@ -194,12 +242,12 @@ class ChzzkStreamDeckServer {
         });
         
         chatProcess.stderr.on('data', (data) => {
-            console.error(`❌ 채팅 오류: ${data.toString().trim()}`);
+            console.error(`채팅 오류: ${data.toString().trim()}`);
         });
         
         chatProcess.on('close', (code) => {
             if (code !== 0) {
-                console.log(`⚠️ 채팅 모듈 종료 - 코드: ${code}`);
+                console.log(`채팅 모듈 종료 - 코드: ${code}`);
             }
             this.processes.chat = null;
             this.status.chat.active = false;
@@ -207,7 +255,7 @@ class ChzzkStreamDeckServer {
         });
         
         // 프로세스 시작 확인
-        await this.sleep(2000);
+        await this.sleep(this.CONFIG.PROCESS_START_WAIT_TIME);
         
         if (!this.processes.chat || this.processes.chat.killed) {
             throw new Error('채팅 모듈 시작에 실패했습니다.');
@@ -222,7 +270,7 @@ class ChzzkStreamDeckServer {
             throw new Error('실행 중인 채팅 모듈이 없습니다.');
         }
         
-        console.log('🛑 채팅 모듈 중지');
+        console.log('채팅 모듈 중지');
         
         this.processes.chat.kill('SIGTERM');
         this.processes.chat = null;
@@ -235,25 +283,20 @@ class ChzzkStreamDeckServer {
      */
     parseChatMessage(output) {
         try {
+            const CHAT_JSON_PREFIX = 'CHAT_JSON:';
+            
             // JSON 형태의 메시지 (이모티콘 포함) 확인
-            if (output.startsWith('CHAT_JSON:')) {
-                const jsonData = output.substring(10); // 'CHAT_JSON:' 제거
+            if (output.startsWith(CHAT_JSON_PREFIX)) {
+                const jsonData = output.substring(CHAT_JSON_PREFIX.length);
                 const chatData = JSON.parse(jsonData);
                 
-                const message = {
-                    id: Date.now() + Math.random(),
-                    timestamp: new Date().toISOString(),
+                const message = this.createChatMessage({
                     username: chatData.username,
                     message: chatData.message,
-                    extras: chatData.extras,
-                    type: 'chat'
-                };
+                    extras: chatData.extras
+                });
                 
-                // 메시지 저장
-                this.addChatMessage(message);
-                
-                // SSE로 실시간 전송
-                this.broadcastMessage(message);
+                this.processChatMessage(message);
                 return;
             }
             
@@ -261,23 +304,38 @@ class ChzzkStreamDeckServer {
             const chatMatch = output.match(/\[([^\]]+)\]: (.+)/);
             
             if (chatMatch) {
-                const message = {
-                    id: Date.now() + Math.random(),
-                    timestamp: new Date().toISOString(),
+                const message = this.createChatMessage({
                     username: chatMatch[1],
-                    message: chatMatch[2],
-                    type: 'chat'
-                };
+                    message: chatMatch[2]
+                });
                 
-                // 메시지 저장
-                this.addChatMessage(message);
-                
-                // SSE로 실시간 전송
-                this.broadcastMessage(message);
+                this.processChatMessage(message);
             }
         } catch (error) {
-            console.error('💥 채팅 메시지 파싱 오류:', error);
+            console.error('채팅 메시지 파싱 오류:', error);
         }
+    }
+
+    /**
+     * 채팅 메시지 객체 생성
+     */
+    createChatMessage(data) {
+        return {
+            id: Date.now() + Math.random(),
+            timestamp: new Date().toISOString(),
+            username: data.username,
+            message: data.message,
+            extras: data.extras,
+            type: 'chat'
+        };
+    }
+
+    /**
+     * 채팅 메시지 처리 (저장 및 브로드캐스트)
+     */
+    processChatMessage(message) {
+        this.addChatMessage(message);
+        this.broadcastMessage(message);
     }
 
     /**
@@ -311,7 +369,7 @@ class ChzzkStreamDeckServer {
             const data = JSON.stringify(message);
             connection.write(`data: ${data}\n\n`);
         } catch (error) {
-            console.error('💥 SSE 전송 오류:', error);
+            console.error('SSE 전송 오류:', error);
             this.sseConnections.delete(connection);
         }
     }
@@ -356,7 +414,7 @@ class ChzzkStreamDeckServer {
      * 서버 시작
      */
     start() {
-        this.app.listen(this.port, () => {
+        this.app.listen(this.port, this.host, () => {
             this.printStartupInfo();
         });
     }
@@ -365,16 +423,16 @@ class ChzzkStreamDeckServer {
      * 시작 정보 출력
      */
     printStartupInfo() {
-        console.log('🎮 ChzzkStreamDeck 서버 시작 (포트: 7112)');
-        console.log(`📊 대시보드: http://localhost:7112`);
-        console.log(`💬 채팅 오버레이: http://localhost:7112/chat-overlay.html`);
+        console.log(`ChzzkStreamDeck 서버 시작 (포트: ${this.port})`);
+        console.log(`대시보드: http://${this.host}:${this.port}`);
+        console.log(`채팅 오버레이: http://${this.host}:${this.port}/chat-overlay.html`);
     }
 
     /**
      * 서버 종료
      */
     shutdown() {
-        console.log('🛑 서버 종료');
+        console.log('서버 종료');
         
         // 모든 프로세스 정리
         if (this.processes.chat) {

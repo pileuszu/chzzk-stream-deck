@@ -14,7 +14,9 @@ class ChatModule {
     
     async checkInitialStatus() {
         try {
-            const response = await fetch('http://localhost:7112/api/status');
+            const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+            const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
+            const response = await fetch(`${baseUrl}${statusEndpoint}`);
             const result = await response.json();
             
             if (result.success && result.status.chat?.active) {
@@ -22,7 +24,7 @@ class ChatModule {
                 this.updateToggleState(true);
                 this.updateUIState(true);
                 this.startStatusMonitoring();
-                console.log('✅ 채팅 모듈이 이미 실행 중입니다.');
+                console.log('채팅 모듈이 이미 실행 중입니다.');
             }
         } catch (error) {
             // 서버가 실행되지 않은 경우 무시
@@ -40,9 +42,12 @@ class ChatModule {
         this.channelId = settings.channelId;
         
         try {
-            const response = await fetch('http://localhost:7112/api/chat/start', {
+            const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+            const startEndpoint = window.APP_CONFIG?.API?.CHAT_START || '/api/chat/start';
+            const contentType = window.APP_CONFIG?.HTTP_HEADERS?.CONTENT_TYPE_JSON || 'application/json';
+            const response = await fetch(`${baseUrl}${startEndpoint}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': contentType },
                 body: JSON.stringify({ channelId: this.channelId })
             });
             
@@ -51,14 +56,14 @@ class ChatModule {
             if (result.success) {
                 this.isActive = true;
                 this.startStatusMonitoring();
-                console.log('✅ 채팅 연결');
+                console.log('채팅 연결');
                 this.showSuccess('채팅 모듈이 터미널에서 시작되었습니다.');
                 return true;
             } else {
                 throw new Error(result.error || '백엔드 서버 연결 실패');
             }
         } catch (error) {
-            console.error('❌ CHZZK 채팅 모듈 시작 실패:', error);
+            console.error('CHZZK 채팅 모듈 시작 실패:', error);
             
             const errorMsg = error.message.includes('fetch')
                 ? '백엔드 서버가 실행되지 않았습니다. npm start로 서버를 먼저 시작해주세요.'
@@ -71,9 +76,12 @@ class ChatModule {
     
     async stop() {
         try {
-            const response = await fetch('http://localhost:7112/api/chat/stop', {
+            const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+            const stopEndpoint = window.APP_CONFIG?.API?.CHAT_STOP || '/api/chat/stop';
+            const contentType = window.APP_CONFIG?.HTTP_HEADERS?.CONTENT_TYPE_JSON || 'application/json';
+            const response = await fetch(`${baseUrl}${stopEndpoint}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': contentType }
             });
             
             const result = await response.json();
@@ -81,31 +89,35 @@ class ChatModule {
             if (result.success) {
                 this.isActive = false;
                 this.stopStatusMonitoring();
-                console.log('✅ 채팅 종료');
+                console.log('채팅 종료');
                 this.showSuccess('채팅 모듈이 중지되었습니다.');
             }
         } catch (error) {
-            console.error('❌ 채팅 모듈 중지 실패:', error);
+            console.error('채팅 모듈 중지 실패:', error);
             this.isActive = false;
         }
     }
     
     async restart() {
         await this.stop();
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const reconnectDelay = window.APP_CONFIG?.CHAT?.RECONNECT_DELAY || 500;
+        await new Promise(resolve => setTimeout(resolve, reconnectDelay));
         return await this.start();
     }
     
     startStatusMonitoring() {
         if (this.statusInterval) return;
         
+        const checkInterval = window.APP_CONFIG?.CHAT?.STATUS_CHECK_INTERVAL || 5000;
         this.statusInterval = setInterval(async () => {
             try {
-                const response = await fetch('http://localhost:7112/api/status');
+                const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+                const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
+                const response = await fetch(`${baseUrl}${statusEndpoint}`);
                 const result = await response.json();
                 
                 if (result.success && !result.status.chat?.active && this.isActive) {
-                    console.log('⚠️ 채팅 연결 종료');
+                    console.log('채팅 연결 종료');
                     this.isActive = false;
                     this.stopStatusMonitoring();
                     this.updateToggleState(false);
@@ -115,7 +127,7 @@ class ChatModule {
             } catch (error) {
                 // 서버 연결 실패 시 무시
             }
-        }, 5000);
+        }, checkInterval);
     }
     
     stopStatusMonitoring() {

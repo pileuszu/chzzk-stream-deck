@@ -133,72 +133,79 @@ class UIManager {
     }
     
     showSuccess(message) {
-        console.log('✅', message);
+        console.log(message);
     }
     
     showInfo(message) {
         console.log(message);
+        
+        const AUTO_CLOSE_DELAY = 10000; // 10초
         
         const formattedMessage = message.replace(/\n/g, '<br>');
         const infoModal = document.createElement('div');
         infoModal.className = 'info-modal';
         infoModal.innerHTML = `
             <div class="info-modal-content">
-                <h3>📋 정보</h3>
-                <pre>${message}</pre>
+                <h3>정보</h3>
+                <pre>${formattedMessage}</pre>
                 <button class="info-modal-close">확인</button>
             </div>
         `;
         
         // 스타일 적용
-        infoModal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-        `;
+        const MODAL_STYLES = {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: '10000'
+        };
+        
+        Object.assign(infoModal.style, MODAL_STYLES);
         
         const content = infoModal.querySelector('.info-modal-content');
-        content.style.cssText = `
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 500px;
-            max-height: 400px;
-            overflow-y: auto;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        `;
+        const CONTENT_STYLES = {
+            background: 'white',
+            padding: '30px',
+            borderRadius: '10px',
+            maxWidth: '500px',
+            maxHeight: '400px',
+            overflowY: 'auto',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+        };
+        Object.assign(content.style, CONTENT_STYLES);
         
         const pre = infoModal.querySelector('pre');
-        pre.style.cssText = `
-            white-space: pre-wrap;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            color: #666;
-            margin: 15px 0;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-        `;
+        const PRE_STYLES = {
+            whiteSpace: 'pre-wrap',
+            fontFamily: "'Courier New', monospace",
+            fontSize: '12px',
+            lineHeight: '1.4',
+            color: '#666',
+            margin: '15px 0',
+            background: '#f8f9fa',
+            padding: '15px',
+            borderRadius: '5px',
+            overflowX: 'auto'
+        };
+        Object.assign(pre.style, PRE_STYLES);
         
         const closeBtn = infoModal.querySelector('.info-modal-close');
-        closeBtn.style.cssText = `
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            float: right;
-        `;
+        const BUTTON_STYLES = {
+            background: '#007bff',
+            color: 'white',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            float: 'right'
+        };
+        Object.assign(closeBtn.style, BUTTON_STYLES);
         
         closeBtn.onclick = () => infoModal.remove();
         infoModal.addEventListener('click', (e) => {
@@ -209,11 +216,11 @@ class UIManager {
         
         document.body.appendChild(infoModal);
         
-        // 10초 후 자동 닫기
+        // 자동 닫기
         setTimeout(() => {
             if (infoModal.parentElement) {
                 infoModal.remove();
             }
-        }, 10000);
+        }, AUTO_CLOSE_DELAY);
     }
 }

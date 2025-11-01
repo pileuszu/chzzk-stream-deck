@@ -85,10 +85,16 @@
             align-items: center;
         }
 
+        .align-left .chat-message-container,
+        .align-right .chat-message-container,
+        .align-center .chat-message-container {
+            max-width: 80%;
+        }
+        
         .align-left .chat-message,
         .align-right .chat-message,
         .align-center .chat-message {
-            max-width: 80%;
+            max-width: 100%;
         }
 
         .align-right .chat-message {
@@ -102,20 +108,35 @@
         }
 
         /* Simple Purple 테마 정렬 보강 */
-        .theme-simple-purple.align-left .chat-message {
+        .theme-simple-purple.align-left .chat-message-container {
             align-self: flex-start;
             margin-left: 0;
             margin-right: auto;
         }
 
-        .theme-simple-purple.align-right .chat-message {
+        .theme-simple-purple.align-right .chat-message-container {
             align-self: flex-end;
             margin-left: auto;
             margin-right: 0;
         }
 
-        .theme-simple-purple.align-center .chat-message {
+        .theme-simple-purple.align-center .chat-message-container {
             align-self: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .theme-simple-purple.align-left .chat-message {
+            margin-left: 0;
+            margin-right: auto;
+        }
+
+        .theme-simple-purple.align-right .chat-message {
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .theme-simple-purple.align-center .chat-message {
             margin-left: auto;
             margin-right: auto;
         }
@@ -127,6 +148,8 @@
             padding: 16px 22px;
             border-radius: 18px;
             backdrop-filter: blur(10px);
+            word-break: keep-all;
+            overflow-wrap: break-word;
             word-wrap: break-word;
             transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             margin: 0 5px;
@@ -147,11 +170,14 @@
             font-family: 'Ownglyph_ParkDaHyun', sans-serif;
         }
 
-        .message {
+            .message {
             font-size: 14px;
             line-height: 1.5;
             color: #ffffff;
-            word-break: break-word;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            text-align: center;
             font-family: 'Ownglyph_ParkDaHyun', sans-serif;
         }
 
@@ -177,8 +203,8 @@
             position: relative;
             overflow: visible;
             width: fit-content;
-            min-width: 200px;
-            max-width: 95%;
+            min-width: 100px;
+            max-width: 100%;
             padding: 16px 22px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -218,6 +244,7 @@
             position: relative;
             display: inline-block;
             width: fit-content;
+            max-width: 95%;
         }
 
         .theme-simple-purple .rocket-icon {
@@ -283,7 +310,11 @@
             visibility: visible;
             font-size: 16px !important;
             word-break: normal !important;
-            overflow-wrap: normal !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
+            hyphens: none !important;
+            white-space: normal !important;
+            text-align: center !important;
             font-family: 'CookieRun-Regular', 'Ownglyph_ParkDaHyun', sans-serif !important;
         }
 
@@ -380,10 +411,23 @@
                 this.eventSource = null;
                 this.maxMessages = 20;
                 this.messageTimeout = 30; // 초
-                this.serverUrl = 'http://localhost:7112';
+                this.maxNicknameLength = 20; // 닉네임 최대 길이
+                // 서버 URL은 현재 페이지의 origin 사용
+                this.serverUrl = window.location.origin;
                 this.messages = [];
                 this.reconnectAttempts = 0;
                 this.maxReconnectAttempts = 5;
+                this.settingsCheckInterval = null;
+                this.lastSettingsHash = null;
+                
+                // 상수 정의
+                this.CONSTANTS = {
+                    DEFAULT_MAX_MESSAGES: 20,
+                    DEFAULT_MESSAGE_TIMEOUT: 30,
+                    DEFAULT_MAX_RECONNECT_ATTEMPTS: 5,
+                    DEFAULT_MAX_NICKNAME_LENGTH: 20,
+                    STORAGE_PREFIX: 'chat-'
+                };
                 
                 this.elements = {
                     chatContainer: document.getElementById('chatContainer'),
@@ -397,11 +441,12 @@
              * 초기화
              */
             init() {
-                console.log('🚀 채팅 오버레이 초기화 시작');
+                console.log('채팅 오버레이 초기화 시작');
                 this.loadSettings();
                 this.connectToServer();
                 this.setupEventListeners();
-                console.log('✅ 채팅 오버레이 초기화 완료');
+                this.startSettingsPolling();
+                console.log('채팅 오버레이 초기화 완료');
             }
 
             /**
@@ -423,9 +468,58 @@
 
                 // 같은 탭에서의 설정 변경을 감지하기 위한 커스텀 이벤트
                 window.addEventListener('chatSettingsChanged', () => {
-    
+                    console.log('설정 변경 이벤트 수신');
                     this.loadSettings();
                 });
+            }
+            
+            /**
+             * 설정 변경 감지를 위한 주기적 확인 시작
+             */
+            startSettingsPolling() {
+                // 초기 설정 해시 계산
+                this.updateSettingsHash();
+                
+                // 1초마다 설정 변경 확인
+                this.settingsCheckInterval = setInterval(() => {
+                    const currentHash = this.calculateSettingsHash();
+                    if (currentHash !== this.lastSettingsHash) {
+                        console.log('설정 변경 감지됨, 재로드 중...');
+                        this.loadSettings();
+                        this.lastSettingsHash = currentHash;
+                    }
+                }, 1000);
+            }
+            
+            /**
+             * 설정 해시 계산
+             */
+            calculateSettingsHash() {
+                const settings = {
+                    theme: localStorage.getItem('chat-theme'),
+                    maxMessages: localStorage.getItem('chat-max-messages'),
+                    messageTimeout: localStorage.getItem('chat-fade-time'),
+                    alignment: localStorage.getItem('chat-alignment'),
+                    maxNicknameLength: localStorage.getItem('chat-max-nickname-length')
+                };
+                return JSON.stringify(settings);
+            }
+            
+            /**
+             * 설정 해시 업데이트
+             */
+            updateSettingsHash() {
+                this.lastSettingsHash = this.calculateSettingsHash();
+            }
+            
+            /**
+             * 설정 폴링 중지
+             */
+            stopSettingsPolling() {
+                if (this.settingsCheckInterval) {
+                    clearInterval(this.settingsCheckInterval);
+                    this.settingsCheckInterval = null;
+                }
             }
 
             /**
@@ -439,45 +533,105 @@
                     messageTimeout: localStorage.getItem('chat-fade-time'),
                     serverUrl: localStorage.getItem('serverUrl'),
                     alignment: localStorage.getItem('chat-alignment'),
-                    platform: localStorage.getItem('chat-platform'),
+                    maxNicknameLength: localStorage.getItem('chat-max-nickname-length'),
                     channelId: localStorage.getItem('chat-channel-id')
                 };
                 
-                console.log('📋 localStorage 원본 설정값:', rawSettings);
+                console.log('=== 설정 로드 시작 ===');
+                console.log('localStorage 원본 설정값:', rawSettings);
+                console.log('현재 maxNicknameLength 값:', this.maxNicknameLength);
                 
                 // 설정값 처리
                 const settings = {
                     theme: rawSettings.theme || 'simple-purple',
-                    maxMessages: rawSettings.maxMessages || '20',
-                    messageTimeout: rawSettings.messageTimeout || '0',  // 기본값을 0으로 변경
-                    serverUrl: rawSettings.serverUrl || 'http://localhost:7112',
+                    maxMessages: rawSettings.maxMessages || String(this.CONSTANTS.DEFAULT_MAX_MESSAGES),
+                    messageTimeout: rawSettings.messageTimeout || '0',
+                    serverUrl: rawSettings.serverUrl || window.location.origin,
                     alignment: rawSettings.alignment || 'default',
-                    platform: rawSettings.platform || 'chzzk',
+                    maxNicknameLength: rawSettings.maxNicknameLength || String(this.CONSTANTS.DEFAULT_MAX_NICKNAME_LENGTH),
                     channelId: rawSettings.channelId || ''
                 };
                 
-                console.log('📋 처리된 설정값:', settings);
+                console.log('처리된 설정값:', settings);
                 
                 // 최대 메시지 수 설정
                 const maxMessagesValue = parseInt(settings.maxMessages);
-                this.maxMessages = isNaN(maxMessagesValue) ? 20 : Math.max(1, maxMessagesValue);
+                this.maxMessages = isNaN(maxMessagesValue) ? this.CONSTANTS.DEFAULT_MAX_MESSAGES : Math.max(1, maxMessagesValue);
                 
                 // 메시지 타임아웃 처리 개선
                 const timeoutValue = parseInt(settings.messageTimeout);
                 this.messageTimeout = isNaN(timeoutValue) ? 0 : Math.max(0, timeoutValue);
                 
-                console.log(`💬 채팅 설정 적용: 최대 메시지 ${this.maxMessages}개, 지속시간 ${this.messageTimeout === 0 ? '무제한' : this.messageTimeout + '초'}`);
+                // 닉네임 최대 길이 설정
+                const previousMaxNicknameLength = this.maxNicknameLength;
+                const maxNicknameLengthValue = parseInt(settings.maxNicknameLength);
+                this.maxNicknameLength = isNaN(maxNicknameLengthValue) ? this.CONSTANTS.DEFAULT_MAX_NICKNAME_LENGTH : Math.max(1, Math.min(50, maxNicknameLengthValue));
+                
+                console.log(`채팅 설정 적용: 최대 메시지 ${this.maxMessages}개, 지속시간 ${this.messageTimeout === 0 ? '무제한' : this.messageTimeout + '초'}, 닉네임 최대 길이 ${previousMaxNicknameLength}자 -> ${this.maxNicknameLength}자, 정렬: ${settings.alignment}, 테마: ${settings.theme}`);
                 
                 this.serverUrl = settings.serverUrl;
+                const previousAlignment = this.alignment;
                 this.alignment = settings.alignment;
-                this.platform = settings.platform;
                 this.channelId = settings.channelId;
                 
                 // 테마 적용
-                this.elements.chatContainer.className = `chat-container theme-${settings.theme}`;
+                const previousTheme = this.elements.chatContainer.className.match(/theme-(\w+)/)?.[1];
+                if (previousTheme !== settings.theme) {
+                    console.log(`테마 변경: ${previousTheme} -> ${settings.theme}`);
+                    this.elements.chatContainer.className = `chat-container theme-${settings.theme}`;
+                }
                 
                 // 정렬 방식 적용
-                this.applyChatAlignment(settings.alignment);
+                if (previousAlignment !== settings.alignment) {
+                    console.log(`정렬 방식 변경: ${previousAlignment} -> ${settings.alignment}`);
+                    this.applyChatAlignment(settings.alignment);
+                }
+                
+                // 최대 메시지 수 변경 시 기존 메시지 정리
+                const previousMaxMessages = this.messages.length;
+                this.cleanupExcessMessages();
+                
+                // 설정 해시 업데이트
+                this.updateSettingsHash();
+                
+                // 기존 메시지들이 새로운 설정(예: 닉네임 길이 제한)에 맞게 업데이트 필요 시
+                // 현재 표시된 메시지들의 닉네임을 업데이트
+                this.updateDisplayedNicknames();
+                
+                console.log('=== 설정 로드 완료 ===');
+            }
+            
+            /**
+             * 표시된 메시지들의 닉네임 길이 제한 업데이트
+             */
+            updateDisplayedNicknames() {
+                console.log(`닉네임 길이 업데이트 시작: 최대 ${this.maxNicknameLength}자, 총 ${this.messages.length}개 메시지`);
+                let updatedCount = 0;
+                // 메시지 배열을 순회하면서 원본 닉네임으로 다시 렌더링
+                this.messages.forEach((msg, index) => {
+                    if (msg.element && msg.originalUsername) {
+                        const usernameEl = msg.element.querySelector('.username');
+                        if (usernameEl) {
+                            let displayUsername = msg.originalUsername;
+                            const originalLength = displayUsername.length;
+                            if (displayUsername.length > this.maxNicknameLength) {
+                                displayUsername = displayUsername.substring(0, this.maxNicknameLength) + '...';
+                                updatedCount++;
+                            }
+                            usernameEl.textContent = displayUsername;
+                            if (index < 3) { // 처음 3개만 상세 로그
+                                console.log(`  메시지 ${index}: "${msg.originalUsername}" (${originalLength}자) -> "${displayUsername}"`);
+                            }
+                        } else {
+                            console.warn(`  메시지 ${index}: username 요소를 찾을 수 없음`);
+                        }
+                    } else {
+                        if (index < 3) {
+                            console.warn(`  메시지 ${index}: originalUsername이 없음`, msg);
+                        }
+                    }
+                });
+                console.log(`닉네임 길이 업데이트 완료: ${updatedCount}개 메시지 업데이트됨`);
             }
 
             /**
@@ -558,26 +712,27 @@
                 const messageElement = this.createMessageElement(messageData);
                 this.elements.chatMessages.appendChild(messageElement);
                 
-                // 메시지 배열에 추가
+                // 메시지 배열에 추가 (원본 닉네임 저장)
                 this.messages.push({
                     element: messageElement,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    originalUsername: messageData.username // 원본 닉네임 저장
                 });
                 
                 const currentCount = this.messages.length;
-                console.log(`📝 새 메시지 추가: "${messageData.username}: ${messageData.message.substring(0, 30)}..." (총 ${currentCount}개)`);
+                console.log(`새 메시지 추가: "${messageData.username}: ${messageData.message.substring(0, 30)}..." (총 ${currentCount}개)`);
                 
                 // 최대 메시지 수 관리 (항상 실행)
                 this.cleanupExcessMessages();
                 
                 // 자동 삭제 타이머 설정 (타이머가 0이 아닐 때만)
                 if (this.messageTimeout > 0) {
-                    console.log(`⏰ 메시지 자동 삭제 타이머 설정: ${this.messageTimeout}초`);
+                    console.log(`메시지 자동 삭제 타이머 설정: ${this.messageTimeout}초`);
                     setTimeout(() => {
                         this.removeMessage(messageElement);
                     }, this.messageTimeout * 1000);
                 } else {
-                    console.log('⏰ 메시지 자동 삭제 비활성화 (무제한 유지)');
+                    console.log('메시지 자동 삭제 비활성화 (무제한 유지)');
                 }
                 
                 // 페이드 아웃 효과 적용
@@ -693,12 +848,22 @@
                 const containerElement = document.createElement('div');
                 containerElement.className = 'chat-message-container';
                 
+                // 닉네임 길이 제한
+                let displayUsername = this.escapeHtml(messageData.username);
+                const originalLength = displayUsername.length;
+                if (displayUsername.length > this.maxNicknameLength) {
+                    displayUsername = displayUsername.substring(0, this.maxNicknameLength) + '...';
+                    if (originalLength !== displayUsername.length) {
+                        console.log(`닉네임 길이 제한 적용: "${messageData.username}" (${originalLength}자) -> "${displayUsername}"`);
+                    }
+                }
+                
                 // 이모티콘 처리된 메시지
                 const processedMessage = this.processEmoticons(messageData.message, messageData.extras);
                 
                 containerElement.innerHTML = `
                     <div class="rocket-icon"></div>
-                    <span class="username">${this.escapeHtml(messageData.username)}</span>
+                    <span class="username">${displayUsername}</span>
                     <div class="chat-message">
                         <div class="message">${processedMessage}</div>
                         <div class="star-icon"></div>
@@ -741,7 +906,7 @@
              */
             cleanupExcessMessages() {
                 const currentMessageCount = this.messages.length;
-                console.log(`🧹 메시지 정리 확인: 현재 ${currentMessageCount}개, 최대 ${this.maxMessages}개`);
+                console.log(`메시지 정리 확인: 현재 ${currentMessageCount}개, 최대 ${this.maxMessages}개`);
                 
                 let removedCount = 0;
                 while (this.messages.length > this.maxMessages) {
@@ -751,11 +916,11 @@
                 }
                 
                 if (removedCount > 0) {
-                    console.log(`🗑️ 최대 메시지 수 초과로 ${removedCount}개 메시지 제거됨`);
+                    console.log(`최대 메시지 수 초과로 ${removedCount}개 메시지 제거됨`);
                     // 메시지 제거 후 페이드 효과 재적용
                     this.applyFadeEffect();
                 } else {
-                    console.log('✅ 메시지 수 정상 범위 내');
+                    console.log('메시지 수 정상 범위 내');
                 }
             }
 
@@ -765,7 +930,7 @@
             removeMessage(messageElement) {
                 if (!messageElement || !messageElement.parentNode) return;
                 
-                console.log('⏰ 메시지 타임아웃으로 제거 시작 (페이드 아웃)');
+                console.log('메시지 타임아웃으로 제거 시작 (페이드 아웃)');
                 
                 const chatMessage = messageElement.querySelector('.chat-message');
                 if (chatMessage) {
@@ -774,7 +939,7 @@
                 
                 setTimeout(() => {
                     this.removeMessageImmediately(messageElement);
-                    console.log('⏰ 메시지 타임아웃 제거 완료');
+                    console.log('메시지 타임아웃 제거 완료');
                 }, 500);
             }
 
@@ -784,7 +949,7 @@
             removeMessageImmediately(messageElement) {
                 if (!messageElement || !messageElement.parentNode) return;
                 
-                console.log('🗑️ 메시지 즉시 제거 실행');
+                console.log('메시지 즉시 제거 실행');
                 
                 messageElement.parentNode.removeChild(messageElement);
                 
@@ -793,7 +958,7 @@
                 this.messages = this.messages.filter(msg => msg.element !== messageElement);
                 const afterCount = this.messages.length;
                 
-                console.log(`📊 메시지 배열 업데이트: ${beforeCount}개 → ${afterCount}개`);
+                console.log(`메시지 배열 업데이트: ${beforeCount}개 → ${afterCount}개`);
                 
                 // 메시지 제거 후 페이드 효과 재적용
                 this.applyFadeEffect();
@@ -831,6 +996,7 @@
                     this.eventSource.close();
                     this.eventSource = null;
                 }
+                this.stopSettingsPolling();
             }
         }
 
