@@ -17,7 +17,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write  # 릴리스 생성을 위한 권한
-      artifacts: read  # 아티팩트 읽기 권한
     strategy:
       fail-fast: false
       matrix:

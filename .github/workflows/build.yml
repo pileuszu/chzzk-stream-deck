@@ -20,8 +20,7 @@ jobs:
     name: Build Windows
     runs-on: windows-latest
     permissions:
-      contents: write  # 릴리스 생성을 위한 권한
-      artifacts: read  # 아티팩트 읽기 권한
+      contents: write  # 릴리스 생성을 위한 권한 (필요한 경우에만)
     
     steps:
       - name: Checkout code
