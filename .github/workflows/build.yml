@@ -1,59 +1,24 @@
-name: Build and Release
+# This workflow is disabled
+# Builds only run when tags are pushed (see build-release.yml)
+# PR builds are handled by build-pr.yml
+
+name: Build (Disabled)
 
 on:
-  push:
-    branches:
-      - develop  # develop 브랜치에 푸시 시 빌드 실행
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'README*.md'
-      - 'BUILD_FIX.md'
-      - 'README_BUILD.md'
-      - '.git-branch-strategy.md'
-  pull_request:
-    branches:
-      - develop  # develop 브랜치로의 PR에서도 빌드 테스트
-  workflow_dispatch: # 수동 실행 가능
+  workflow_dispatch:  # Only available for manual runs if needed
+    inputs:
+      force_build:
+        description: 'Force build (for testing)'
+        required: false
+        default: 'false'
 
 jobs:
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-    permissions:
-      contents: write  # 릴리스 생성을 위한 권한 (필요한 경우에만)
-    
+  disabled:
+    name: Workflow Disabled
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Clear cache
-        run: node scripts/clear-cache.js || echo "캐시 삭제 완료 (또는 캐시 없음)"
-        continue-on-error: true
-      
-      - name: Build Windows executable
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run build:win
-      
-      - name: Upload Windows build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: |
-            dist/*.exe
-            dist/win-unpacked/**/*
-          retention-days: 30
-      
-      # 릴리스는 태그를 푸시할 때만 생성됩니다 (build-release.yml 사용)
-      # 빌드 아티팩트는 위의 Upload 단계에서 업로드됩니다
-
+      - name: Info
+        run: |
+          echo "This workflow is disabled."
+          echo "Builds only run on tag push (see build-release.yml)."
+          echo "For PR builds, see build-pr.yml."

@@ -5,28 +5,24 @@
 ## 워크플로우 파일
 
 ### 1. `build.yml`
-**목적**: `develop` 브랜치에 푸시될 때마다 Windows 빌드를 실행하고 아티팩트를 업로드합니다.
+**상태**: 비활성화됨
+- develop 브랜치에서는 빌드가 실행되지 않습니다
+- 빌드는 릴리스 시에만 필요합니다
+
+### 2. `build-release.yml`
+**목적**: 태그가 푸시되면 빌드하고 릴리스를 생성합니다.
 
 **트리거**:
-- `develop` 브랜치에 푸시
-- `develop` 브랜치로의 Pull Request
+- `v*` 형식의 태그 푸시 (예: `v2.0.0`) → 빌드 + 릴리스 생성
 - 수동 실행 (workflow_dispatch)
 
 **실행 내용**:
 1. 코드 체크아웃
 2. Node.js 18 설정
-3. 의존성 설치 (`npm ci`)
-4. 캐시 삭제
-5. Windows 빌드 실행
-6. 빌드 아티팩트 업로드 (릴리스는 생성하지 않음)
-
-### 2. `build-release.yml`
-**목적**: 태그가 푸시되면 빌드하고 릴리스를 생성합니다. `main` 브랜치 푸시 시에는 빌드만 실행합니다.
-
-**트리거**:
-- `v*` 형식의 태그 푸시 (예: `v2.0.0`) → 빌드 + 릴리스 생성
-- `main` 브랜치에 푸시 → 빌드만 실행 (릴리스 생성 안 함)
-- 수동 실행
+3. 의존성 설치
+4. Windows 빌드 실행
+5. 빌드 아티팩트 업로드
+6. GitHub Release 생성 및 파일 첨부
 
 ### 3. `build-pr.yml`
 **목적**: Pull Request 시 빌드 테스트 실행
@@ -55,21 +51,20 @@ git push origin v2.0.0
 ## 브랜치 전략
 
 이 프로젝트는 Git Flow 전략을 사용합니다:
-- **develop**: 개발 브랜치 (자동 빌드 실행)
-- **main**: 프로덕션 브랜치 (태그 푸시 시 릴리스 생성)
+- **develop**: 개발 브랜치 (빌드 실행 안 함, 개발 작업만)
+- **main**: 프로덕션 브랜치 (태그 푸시 시에만 빌드 및 릴리스)
 - **feature/***: 기능 개발 브랜치
 
 자세한 내용은 [.git-branch-strategy.md](../.git-branch-strategy.md)를 참조하세요.
 
 ## 사용 방법
 
-### 자동 빌드
-`develop` 브랜치에 푸시하면 자동으로 빌드가 시작됩니다.
+### 개발 작업
+`develop` 브랜치에서 개발 작업을 진행합니다. 빌드는 실행되지 않습니다.
 
 ```bash
-# develop 브랜치로 전환 (처음 설정 시)
-git checkout -b develop
-git push origin develop
+# develop 브랜치로 전환
+git checkout develop
 
 # 작업 후 푸시
 git add .
@@ -94,13 +89,15 @@ git merge develop
 git push origin main
 ```
 
-2. **버전 태그 생성 및 푸시**
+2. **버전 태그 생성 및 푸시 (main 브랜치에서)**
 ```bash
 git tag v2.0.1
 git push origin v2.0.1
 ```
 
-태그 푸시 시 자동으로 릴리스가 생성됩니다.
+**태그 푸시 시 자동으로 빌드가 실행되고 릴리스가 생성됩니다.**
+
+⚠️ **주의**: 태그는 반드시 `main` 브랜치에서 생성하고 푸시해야 합니다.
 
 ## 빌드 아티팩트 다운로드
 
