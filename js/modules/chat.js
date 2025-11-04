@@ -13,28 +13,62 @@ class ChatModule {
     }
     
     async checkInitialStatus() {
-        try {
-            const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
-            const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
-            const response = await fetch(`${baseUrl}${statusEndpoint}`);
-            
-            if (!response.ok) {
-                // 서버가 응답하지 않으면 무시
+        // 서버가 준비될 때까지 재시도 (최대 5초)
+        const maxRetries = 10;
+        const retryDelay = 500; // 500ms
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+                const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
+                
+                // 타임아웃을 위한 AbortController 사용
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                
+                const response = await fetch(`${baseUrl}${statusEndpoint}`, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    // 서버가 응답하지 않으면 재시도
+                    if (attempt < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        continue;
+                    }
+                    return;
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.status.chat?.active) {
+                    this.isActive = true;
+                    this.updateToggleState(true);
+                    this.updateUIState(true);
+                    this.startStatusMonitoring();
+                    console.log('채팅 모듈이 이미 실행 중입니다.');
+                }
+                return; // 성공하면 종료
+            } catch (error) {
+                // 연결 거부 또는 네트워크 오류인 경우 재시도
+                const isConnectionError = error.name === 'AbortError' || 
+                                         error.message.includes('fetch') || 
+                                         error.message.includes('Failed to fetch') || 
+                                         error.message.includes('ERR_CONNECTION_REFUSED') ||
+                                         error.message.includes('NetworkError');
+                
+                if (isConnectionError && attempt < maxRetries - 1) {
+                    // 재시도 전 대기
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    continue;
+                }
+                
+                // 마지막 시도이거나 다른 오류인 경우 조용히 실패
+                console.debug('초기 상태 확인 실패 (정상):', error.message);
                 return;
             }
-            
-            const result = await response.json();
-            
-            if (result.success && result.status.chat?.active) {
-                this.isActive = true;
-                this.updateToggleState(true);
-                this.updateUIState(true);
-                this.startStatusMonitoring();
-                console.log('채팅 모듈이 이미 실행 중입니다.');
-            }
-        } catch (error) {
-            // 서버가 실행되지 않은 경우 무시 (조용히 실패)
-            console.debug('초기 상태 확인 실패 (정상):', error.message);
         }
     }
     
@@ -84,6 +118,39 @@ class ChatModule {
                     this.showSuccess('채팅 모듈이 터미널에서 시작되었습니다.');
                     return true;
                 } else {
+                    // "이미 실행 중" 오류인 경우 상태 확인 후 재시도
+                    if (result.error && result.error.includes('이미 실행 중')) {
+                        // 서버 상태를 다시 확인
+                        try {
+                            const statusUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
+                            const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
+                            const statusResponse = await fetch(`${statusUrl}${statusEndpoint}`);
+                            const statusResult = await statusResponse.json();
+                            
+                            if (statusResult.success && statusResult.status.chat?.active) {
+                                // 실제로 실행 중이면 상태 업데이트
+                                this.isActive = true;
+                                this.startStatusMonitoring();
+                                this.updateToggleState(true);
+                                this.updateUIState(true);
+                                console.log('채팅 모듈이 이미 실행 중입니다.');
+                                return true;
+                            } else {
+                                // 실행 중이 아니면 서버 상태 불일치, 재시도
+                                console.log('서버 상태 불일치 감지, 재시도...');
+                                if (attempt < maxRetries - 1) {
+                                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                                    continue;
+                                }
+                            }
+                        } catch (statusError) {
+                            // 상태 확인 실패 시 재시도
+                            if (attempt < maxRetries - 1) {
+                                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                                continue;
+                            }
+                        }
+                    }
                     throw new Error(result.error || '채팅 모듈 시작에 실패했습니다.');
                 }
             } catch (error) {

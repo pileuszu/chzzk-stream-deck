@@ -43,8 +43,10 @@ class UIManager {
             modalTitle.textContent = titles[moduleName] || '모듈 설정';
         }
         
-        // 현재 설정 값 로드
-        this.app.settingsManager.loadModalSettings(moduleName);
+        // 현재 설정 값 로드 (비동기)
+        this.app.settingsManager.loadModalSettings(moduleName).catch(err => {
+            console.error('설정 로드 오류:', err);
+        });
     }
     
     closeSettings() {
@@ -52,10 +54,10 @@ class UIManager {
         this.currentModule = null;
     }
     
-    saveSettings() {
+    async saveSettings() {
         if (!this.currentModule) return;
         
-        this.app.settingsManager.saveModalSettings(this.currentModule);
+        await this.app.settingsManager.saveModalSettings(this.currentModule);
         this.applyTheme(this.currentModule, this.app.settingsManager.getModuleSettings(this.currentModule).theme);
         
         // 모듈이 실행 중이면 재시작

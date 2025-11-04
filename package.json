@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "node server.js",
-    "app": "electron .",
+    "app": "node -e \"if (process.platform === 'win32') { require('child_process').execSync('chcp 65001 >nul 2>&1', {stdio:'ignore'}); }\" && electron .",
     "dev": "nodemon server.js",
     "build": "electron-builder",
     "prebuild:win": "node scripts/kill-electron.js && node scripts/clear-cache.js && rm -rf dist || true",

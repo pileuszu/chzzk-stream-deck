@@ -6,6 +6,23 @@
  * @version 2.0.0
  */
 
+// Windows 콘솔 인코딩 설정 (한글 출력 깨짐 방지)
+if (process.platform === 'win32') {
+    try {
+        const { execSync } = require('child_process');
+        execSync('chcp 65001 >nul 2>&1', { stdio: 'ignore' });
+        // stdout 인코딩 설정
+        if (process.stdout.setDefaultEncoding) {
+            process.stdout.setDefaultEncoding('utf8');
+        }
+        if (process.stderr.setDefaultEncoding) {
+            process.stderr.setDefaultEncoding('utf8');
+        }
+    } catch (e) {
+        // 설정 실패 시 무시
+    }
+}
+
 const express = require('express');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -106,6 +123,16 @@ class ChzzkStreamDeckServer {
         // 채팅 메시지 저장소
         this.chatMessages = [];
         this.maxMessages = this.CONFIG.MAX_MESSAGES;
+        
+        // 채팅 설정 저장소 (서버 메모리에 저장 - 모든 클라이언트가 공유)
+        this.chatSettings = {
+            theme: 'simple-purple',
+            channelId: '',
+            maxMessages: 5,
+            alignment: 'left',
+            fadeTime: 0,
+            maxNicknameLength: 5
+        };
         
         // SSE 연결 관리
         this.sseConnections = new Set();
@@ -223,7 +250,11 @@ class ChzzkStreamDeckServer {
         // 채팅 메시지 조회
         this.app.get('/api/chat/messages', (req, res) => this.getChatMessages(req, res));
         
-        // 채팅 모듈 제어
+        // 채팅 설정 조회/저장 (와일드카드 라우트보다 먼저 등록해야 함)
+        this.app.get('/api/chat/settings', (req, res) => this.getChatSettings(req, res));
+        this.app.post('/api/chat/settings', (req, res) => this.saveChatSettings(req, res));
+        
+        // 채팅 모듈 제어 (와일드카드 라우트는 마지막에)
         this.app.post('/api/chat/:action', (req, res) => this.handleChatAction(req, res));
         
         // 상태 조회
@@ -554,6 +585,68 @@ class ChzzkStreamDeckServer {
         // 기본 start() 메서드는 Electron에서 직접 listen을 호출하지 않음
         // main.js에서 serverInstance를 직접 관리
         console.log('서버 인스턴스 준비 완료 (main.js에서 listen 호출 예정)');
+    }
+
+    /**
+     * 채팅 설정 조회
+     */
+    getChatSettings(req, res) {
+        try {
+            res.json({
+                success: true,
+                settings: this.chatSettings
+            });
+        } catch (error) {
+            console.error('설정 조회 오류:', error);
+            res.status(500).json({
+                success: false,
+                error: '설정 조회 실패'
+            });
+        }
+    }
+
+    /**
+     * 채팅 설정 저장
+     */
+    saveChatSettings(req, res) {
+        try {
+            const { theme, channelId, maxMessages, alignment, fadeTime, maxNicknameLength } = req.body;
+            
+            // 설정 업데이트 (유효한 값만 업데이트)
+            if (theme !== undefined && theme !== null) {
+                this.chatSettings.theme = theme;
+            }
+            if (channelId !== undefined && channelId !== null) {
+                this.chatSettings.channelId = channelId;
+            }
+            if (maxMessages !== undefined && maxMessages !== null) {
+                const parsed = parseInt(maxMessages);
+                this.chatSettings.maxMessages = isNaN(parsed) ? 5 : parsed;
+            }
+            if (alignment !== undefined && alignment !== null) {
+                // 'default'를 'left'로 변환 (하위 호환성)
+                this.chatSettings.alignment = alignment === 'default' ? 'left' : alignment;
+            }
+            if (fadeTime !== undefined && fadeTime !== null) {
+                const parsed = parseInt(fadeTime);
+                this.chatSettings.fadeTime = isNaN(parsed) ? 0 : parsed;
+            }
+            if (maxNicknameLength !== undefined && maxNicknameLength !== null) {
+                const parsed = parseInt(maxNicknameLength);
+                this.chatSettings.maxNicknameLength = isNaN(parsed) ? 5 : parsed;
+            }
+            
+            res.json({
+                success: true,
+                settings: this.chatSettings
+            });
+        } catch (error) {
+            console.error('설정 저장 오류:', error);
+            res.status(500).json({
+                success: false,
+                error: '설정 저장 실패'
+            });
+        }
     }
 
     /**

@@ -3,50 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHZZK Stream Deck</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com data:; img-src 'self' data: https:; connect-src 'self' http://localhost:* ws://localhost:*;">
+    <title>CHZZK Stream Deck - 관리 패널</title>
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/themes.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="dashboard-header">
-            <h1><i class="fas fa-stream"></i> CHZZK Stream Deck</h1>
-            <p class="subtitle">각 모듈을 클릭하여 활성화/비활성화할 수 있습니다</p>
+    <!-- 사이드바 -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-stream"></i>
+                <span class="logo-text">CHZZK Stream Deck</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    <a href="#" class="nav-link" data-section="dashboard">
+                        <i class="fas fa-home"></i>
+                        <span>대시보드</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-section="settings">
+                        <i class="fas fa-cog"></i>
+                        <span>설정</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="version-info">
+                <span>v2.0.0</span>
+            </div>
+        </div>
+    </aside>
 
+    <!-- 메인 컨텐츠 영역 -->
+    <div class="main-content">
+        <!-- 상단 헤더 바 -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2 class="page-title">대시보드</h2>
+            </div>
+            <div class="header-right">
+                <div class="status-indicators-header">
+                    <div class="status-badge">
+                        <span class="status-dot online"></span>
+                        <span>서버 연결됨</span>
+                    </div>
+                </div>
+            </div>
         </header>
 
-        <div class="modules-grid">
-            <!-- 채팅 모듈 -->
-            <div class="module-card" id="chat-module">
-                <div class="module-header">
-                    <div class="module-icon">
+        <!-- 대시보드 컨텐츠 -->
+        <div class="dashboard-container">
+            <!-- 통계 카드 (항상 표시) -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
                         <i class="fas fa-comments"></i>
                     </div>
-                    <div class="module-info">
-                        <h3>실시간 채팅</h3>
-                        <p>스트리밍 채팅 표시</p>
+                    <div class="stat-info">
+                        <h3 class="stat-value" id="chat-status-value">대기 중</h3>
+                        <p class="stat-label">채팅 모듈 상태</p>
                     </div>
-                    <div class="module-controls">
-                        <button class="settings-btn" onclick="openSettings('chat')">
-                            <i class="fas fa-cog"></i>
-                        </button>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 class="stat-value" id="server-port-value">7112</h3>
+                        <p class="stat-label">서버 포트</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 class="stat-value" id="active-modules-value">0</h3>
+                        <p class="stat-label">활성 모듈</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 대시보드 섹션 (통계 카드 제외) -->
+            <div class="content-section" data-section="dashboard">
+                <!-- 모듈 관리 -->
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-puzzle-piece"></i>
+                        모듈 관리
+                    </h3>
+                    <p class="section-description">각 모듈을 활성화/비활성화하여 스트리밍 기능을 관리하세요</p>
+                </div>
+                <div class="modules-grid">
+                    <!-- 채팅 모듈 -->
+                    <div class="module-card" id="chat-module">
+                        <div class="module-header">
+                            <div class="module-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="module-info">
+                                <h3>실시간 채팅</h3>
+                                <p>스트리밍 채팅 표시</p>
+                            </div>
+                            <div class="module-controls">
+                                <button class="settings-btn" onclick="openSettings('chat')">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                                <label class="switch">
+                                    <input type="checkbox" id="chat-toggle">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="module-preview" id="chat-preview">
+                            <div class="browser-source-section">
+                                <h4>브라우저 소스 주소</h4>
+                                <div class="url-copy-container">
+                                    <input type="text" id="chat-url" readonly>
+                                    <button class="copy-btn" onclick="copyToClipboard('chat-url')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 설정 섹션 -->
+            <div class="content-section" data-section="settings" style="display: none;">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-cog"></i>
+                        애플리케이션 설정
+                    </h3>
+                    <p class="section-description">애플리케이션 전역 설정을 관리하세요</p>
+                </div>
+                
+                <div class="settings-list">
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <h4>다크 모드</h4>
+                            <p>어두운 테마로 인터페이스를 전환합니다</p>
+                        </div>
                         <label class="switch">
-                            <input type="checkbox" id="chat-toggle">
+                            <input type="checkbox" id="dark-mode-toggle">
                             <span class="slider"></span>
                         </label>
                     </div>
-                </div>
-                <div class="module-preview" id="chat-preview">
-                    <div class="browser-source-section">
-                        <h4>브라우저 소스 주소</h4>
-                        <div class="url-copy-container">
-                            <input type="text" id="chat-url" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('chat-url')">
-                                <i class="fas fa-copy"></i>
-                            </button>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <h4>애플리케이션 종료</h4>
+                            <p>CHZZK Stream Deck 애플리케이션을 종료합니다</p>
                         </div>
+                        <button class="btn btn-danger" id="quit-app-btn">
+                            <i class="fas fa-power-off"></i>
+                            종료
+                        </button>
                     </div>
                 </div>
             </div>
@@ -97,8 +222,7 @@
                         <div class="setting-item">
                             <label for="chat-alignment">정렬 방식</label>
                             <select id="chat-alignment">
-                                <option value="default">기본</option>
-                                <option value="left">왼쪽 정렬</option>
+                                <option value="left" selected>왼쪽 정렬</option>
                                 <option value="right">오른쪽 정렬</option>
                                 <option value="center">중앙 정렬</option>
                             </select>
@@ -111,6 +235,7 @@
                             <label for="chat-theme-select">테마 선택</label>
                             <select id="chat-theme-select">
                                 <option value="simple-purple" selected>Simple Purple</option>
+                                <option value="unicorn-overlord">Unicorn Overlord</option>
                             </select>
                         </div>
                     </div>

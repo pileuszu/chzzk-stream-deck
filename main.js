@@ -3,6 +3,23 @@
  * 서버를 시작하고 애플리케이션 창을 생성합니다.
  */
 
+// Windows에서 콘솔 인코딩 설정 (한글 출력 깨짐 방지)
+if (process.platform === 'win32') {
+    const { execSync } = require('child_process');
+    try {
+        execSync('chcp 65001 >nul 2>&1', { stdio: 'ignore', shell: true }); // UTF-8 설정
+        // stdout/stderr 인코딩 설정
+        if (process.stdout.setDefaultEncoding) {
+            process.stdout.setDefaultEncoding('utf8');
+        }
+        if (process.stderr.setDefaultEncoding) {
+            process.stderr.setDefaultEncoding('utf8');
+        }
+    } catch (e) {
+        // 설정 실패 시 무시
+    }
+}
+
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const ChzzkStreamDeckServer = require('./server');
@@ -22,13 +39,16 @@ function createServer() {
             console.log(`✓ 서버 시작 완료: http://${server.host}:${server.port}`);
             server.printStartupInfo();
             
-            // 서버 준비 완료 플래그 설정
-            server.isReady = true;
-            
-            // 창이 대기 중이면 로드
-            if (mainWindow && !mainWindow.loaded && loadMainWindowFunc) {
-                loadMainWindowFunc();
-            }
+            // 서버 준비 완료 플래그 설정 (약간의 지연을 두어 서버가 완전히 준비되도록)
+            setTimeout(() => {
+                server.isReady = true;
+                console.log('서버 준비 완료 플래그 설정');
+                
+                // 창이 대기 중이면 로드
+                if (mainWindow && !mainWindow.loaded && loadMainWindowFunc) {
+                    loadMainWindowFunc();
+                }
+            }, 500); // 500ms 지연으로 서버가 완전히 준비되도록
         });
         
         server.serverInstance.on('error', (error) => {
@@ -61,7 +81,8 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: true
+            webSecurity: true,
+            preload: path.join(__dirname, 'preload.js')
         },
         title: 'CHZZK Stream Deck',
         // 개발 모드가 아닐 때도 DevTools 단축키 허용 (F12)
@@ -145,5 +166,14 @@ app.on('before-quit', () => {
     if (server) {
         server.shutdown();
     }
+});
+
+// IPC 핸들러 (렌더러 프로세스에서 호출)
+const { ipcMain } = require('electron');
+ipcMain.on('app-quit', () => {
+    if (server) {
+        server.shutdown();
+    }
+    app.quit();
 });
 

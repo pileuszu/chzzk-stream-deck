@@ -120,6 +120,19 @@
         CHAT_MESSAGE: 93101
     };
 
+    // localStorage 키 이름 (통일된 키 이름 사용)
+    const STORAGE_KEYS = {
+        MODULE_SETTINGS: 'moduleSettings',
+        CHAT_THEME: 'chat-theme',
+        CHAT_CHANNEL_ID: 'chat-channel-id',
+        CHAT_MAX_MESSAGES: 'chat-max-messages',
+        CHAT_ALIGNMENT: 'chat-alignment',
+        CHAT_FADE_TIME: 'chat-fade-time',
+        CHAT_MAX_NICKNAME_LENGTH: 'chat-max-nickname-length',
+        SERVER_URL: 'serverUrl',
+        DARK_MODE: 'dark-mode'
+    };
+
     // 기본 설정값
     const DEFAULT_SETTINGS = {
         chat: {
@@ -144,6 +157,7 @@
         HTTP_HEADERS: HTTP_HEADERS,
         CHZZK_API: CHZZK_API,
         WS_COMMANDS: WS_COMMANDS,
+        STORAGE_KEYS: STORAGE_KEYS,
         DEFAULT_SETTINGS: DEFAULT_SETTINGS
     };
 })();
