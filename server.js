@@ -131,7 +131,8 @@ class ChzzkStreamDeckServer {
             maxMessages: 5,
             alignment: 'left',
             fadeTime: 0,
-            maxNicknameLength: 5
+            maxNicknameLength: 5,
+            fadeMask: true
         };
         
         // SSE 연결 관리
@@ -610,7 +611,7 @@ class ChzzkStreamDeckServer {
      */
     saveChatSettings(req, res) {
         try {
-            const { theme, channelId, maxMessages, alignment, fadeTime, maxNicknameLength } = req.body;
+            const { theme, channelId, maxMessages, alignment, fadeTime, maxNicknameLength, fadeMask } = req.body;
             
             // 설정 업데이트 (유효한 값만 업데이트)
             if (theme !== undefined && theme !== null) {
@@ -635,6 +636,15 @@ class ChzzkStreamDeckServer {
                 const parsed = parseInt(maxNicknameLength);
                 this.chatSettings.maxNicknameLength = isNaN(parsed) ? 5 : parsed;
             }
+            if (fadeMask !== undefined && fadeMask !== null) {
+                this.chatSettings.fadeMask = fadeMask === true || fadeMask === 'true';
+            }
+            
+            // 설정 변경을 모든 클라이언트에 브로드캐스트
+            this.broadcastMessage({
+                type: 'settings',
+                settings: this.chatSettings
+            });
             
             res.json({
                 success: true,

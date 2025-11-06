@@ -2,205 +2,276 @@
    THEME: UNICORN OVERLORD
    ============================================ */
 
-/* Alignment Styles */
-.theme-unicorn-overlord.align-left .chat-message-container {
-    align-self: flex-start;
+/* 폰트 로드 - Noto Sans KR */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100;300;400;500;700;900&display=swap');
+/* 폰트 로드 - Spoqa Han Sans (닉네임용) */
+@import url('//spoqa.github.io/spoqa-han-sans/css/SpoqaHanSans-kr.css');
+/* 폰트 로드 - JoseonShinmyeongjo (채팅 메시지용) */
+@font-face {
+    font-family: 'JoseonShinmyeongjo';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@1.1/ChosunSm.woff') format('woff');
+    font-weight: normal;
+    font-display: swap;
 }
 
-.theme-unicorn-overlord.align-right .chat-message-container {
-    align-self: flex-end;
-    margin-left: auto;
+/* Chat Messages - 페이드 마스크 필터 지원 */
+.theme-unicorn-overlord .chat-messages {
+    /* 기본값: mask 없음 */
+    mask: none !important;
+    -webkit-mask: none !important;
 }
 
-.theme-unicorn-overlord.align-center .chat-message-container {
-    align-self: center;
-    margin-left: auto;
-    margin-right: auto;
+/* mask가 적용된 상태 (클래스로 제어) */
+.theme-unicorn-overlord .chat-messages.fade-mask-enabled {
+    mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%) !important;
+    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%) !important;
 }
 
-.theme-unicorn-overlord.align-right .chat-message {
-    margin-left: auto;
-}
-
-.theme-unicorn-overlord.align-center .chat-message {
-    margin-left: auto;
-    margin-right: auto;
-}
-
-/* Chat Message Styles */
-.theme-unicorn-overlord .chat-message {
-    background: #ffffff !important;
-    border: none !important; /* 테두리는 ::before로 처리 */
-    backdrop-filter: none !important;
+/* Chat Message Container - 닉네임 박스 위치 기준점 */
+.theme-unicorn-overlord .chat-message-container {
     position: relative !important;
-    overflow: visible !important;
-    width: fit-content !important;
-    min-width: 100px !important;
-    max-width: 100% !important;
-    padding: 16px 22px !important;
-    border-radius: 0 !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-    margin-top: 20px !important;
+    /* mask로 fade 효과를 처리하므로 opacity는 항상 1로 유지 */
     opacity: 1 !important;
-    z-index: 3 !important;
-    /* 내용 영역 마스크 - 내부 코너만 잘림 (20px 반경) */
-    -webkit-mask-image: 
-        radial-gradient(circle 20px at 0 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 0 100%, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 100%, transparent 0, transparent 20px, black 20px, black 100%);
-    -webkit-mask-size: 50% 50%;
-    -webkit-mask-position: top left, top right, bottom left, bottom right;
-    -webkit-mask-repeat: no-repeat;
-    mask-image: 
-        radial-gradient(circle 20px at 0 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 0 100%, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 100%, transparent 0, transparent 20px, black 20px, black 100%);
-    mask-size: 50% 50%;
-    mask-position: top left, top right, bottom left, bottom right;
-    mask-repeat: no-repeat;
+    filter: none !important;
 }
 
-/* 테두리 레이어 - 코너 마스크가 적용된 테두리 */
-.theme-unicorn-overlord .chat-message::before {
-    content: '' !important;
-    position: absolute !important;
-    top: -2px !important;
-    left: -2px !important;
-    right: -2px !important;
-    bottom: -2px !important;
-    background: rgba(147, 112, 219, 0.8) !important;
-    z-index: 10 !important;
+/* Chat Message Styles - 3개 영역으로 나눔 */
+.theme-unicorn-overlord .chat-message {
+    position: relative !important;
+    padding: 0 !important; /* 패딩 제거 (자식 요소에서 처리) */
+    margin: 0 !important; /* 마진 제거 */
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    height: 100px !important; /* 고정 높이 (px) */
+    display: flex !important;
+    align-items: stretch !important;
+    opacity: 1 !important; /* HTML 기본 스타일의 opacity: 0 덮어쓰기 */
+    transform: none !important; /* HTML 기본 스타일의 transform 덮어쓰기 */
+    background-image: none !important; /* 기본 배경 제거 */
+    font-size: 0 !important; /* 자식 요소 사이 공백 문자 제거 */
+    line-height: 1 !important;
+    gap: 0 !important; /* flex gap 제거 */
+    row-gap: 0 !important;
+    column-gap: 0 !important;
+}
+
+/* 왼쪽 영역 - Side 이미지 (좌우 반전) */
+.theme-unicorn-overlord .message-left {
+    width: 50px !important;
+    flex: 0 0 50px !important; /* flex-shrink: 0과 동일하지만 더 명확 */
+    padding: 0 !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background-image: url('../../assets/images/Unicorn_Side.png') !important;
+    background-size: 100% 100% !important; /* 이미지가 공간을 완전히 채우도록 */
+    background-position: 0 0 !important;
+    background-repeat: no-repeat !important;
+    transform: scaleX(-1) !important; /* 좌우 반전 */
     pointer-events: none !important;
-    /* 테두리 외부 코너 마스크 - 외부 코너 잘림 (22px 반경) */
-    -webkit-mask-image: 
-        radial-gradient(circle 22px at 0 0, transparent 0, transparent 22px, black 22px, black 100%),
-        radial-gradient(circle 22px at 100% 0, transparent 0, transparent 22px, black 22px, black 100%),
-        radial-gradient(circle 22px at 0 100%, transparent 0, transparent 22px, black 22px, black 100%),
-        radial-gradient(circle 22px at 100% 100%, transparent 0, transparent 22px, black 22px, black 100%);
-    -webkit-mask-size: 50% 50%;
-    -webkit-mask-position: top left, top right, bottom left, bottom right;
-    -webkit-mask-repeat: no-repeat;
-    mask-image: 
-        radial-gradient(circle 22px at 0 0, transparent 0, transparent 22px, black 22px, black 100%),
-        radial-gradient(circle 22px at 100% 0, transparent 0, transparent 22px, black 22px, black 100%),
-        radial-gradient(circle 22px at 0 100%, transparent 0, transparent 22px, black 22px, black 100%),
-        radial-gradient(circle 22px at 100% 100%, transparent 0, transparent 22px, black 22px, black 100%);
-    mask-size: 50% 50%;
-    mask-position: top left, top right, bottom left, bottom right;
-    mask-repeat: no-repeat;
+    max-width: 50px !important;
+    overflow: hidden !important;
 }
 
-/* 테두리 내부 영역 제거 - ::after로 내부를 가려서 테두리만 보이게 */
-.theme-unicorn-overlord .chat-message::after {
+/* 가운데 영역 - Center 이미지 */
+.theme-unicorn-overlord .message-center {
+    flex: 1 1 0% !important; /* flex: 1과 동일하지만 더 명확 */
+    padding: 16px 22px !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    outline: none !important;
+    display: flex !important;
+    align-items: center !important;
+    background-image: url('../../assets/images/Unicorn_Center.png') !important;
+    background-size: auto 100% !important;
+    background-position: left center !important;
+    background-repeat: repeat-x !important;
+    min-width: 200px !important; /* flex overflow 방지 */
+}
+
+/* 오른쪽 영역 - Side 이미지 */
+.theme-unicorn-overlord .message-right {
+    width: 50px !important;
+    flex: 0 0 50px !important; /* flex-shrink: 0과 동일하지만 더 명확 */
+    padding: 0 !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background-image: url('../../assets/images/Unicorn_Side.png') !important;
+    background-size: 100% 100% !important; /* 이미지가 공간을 완전히 채우도록 */
+    background-position: 0 0 !important;
+    background-repeat: no-repeat !important;
+    pointer-events: none !important;
+    max-width: 50px !important;
+    overflow: hidden !important;
+}
+
+/* Username - 3개 영역으로 나눔 (chat-message와 정확히 동일한 구조) */
+.theme-unicorn-overlord .username {
+    position: absolute !important; /* 위치 조정 */
+    top: -6px !important;
+    left: 16px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 238px !important; /* 고정 너비 (40px + 158px + 40px) */
+    height: 42px !important;
+    display: flex !important;
+    align-items: stretch !important;
+    background-image: none !important;
+    z-index: 21 !important;
+    font-size: 0 !important;
+    line-height: 1 !important;
+    gap: 0 !important;
+    /* 크기 변화 방지 */
+    min-width: 238px !important;
+    max-width: 238px !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    transition: none !important;
+    animation: none !important;
+    /* 렌더링 최적화 */
+    contain: layout size style !important;
+    will-change: auto !important;
+}
+
+/* 왼쪽 영역 - Name Left 이미지 (message-left와 동일한 구조) */
+.theme-unicorn-overlord .username > .username-left {
+    width: 40px !important;
+    flex: 0 0 40px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background-image: url('../../assets/images/Unicorn_Name_Left.png') !important;
+    background-size: auto 100% !important; /* 비율 유지하여 품질 개선 */
+    background-position: 0 0 !important;
+    background-repeat: no-repeat !important;
+    image-rendering: auto !important; /* 기본 렌더링 사용 (부드러운 보간) */
+    -ms-interpolation-mode: bicubic !important; /* IE용 고품질 보간 */
+    will-change: transform !important; /* 하드웨어 가속 */
+    backface-visibility: hidden !important; /* 렌더링 최적화 */
+    transform: translateZ(0) !important; /* GPU 가속 활성화 */
+    pointer-events: none !important;
+    max-width: 40px !important;
+    min-width: 40px !important;
+    overflow: visible !important; /* 이미지가 겹치도록 */
+    font-size: 0 !important;
+    line-height: 0 !important;
+    z-index: 1 !important; /* 왼쪽이 위에 */
+}
+
+/* 가운데 영역 - Name Center 이미지 (message-center와 동일한 구조) */
+.theme-unicorn-overlord .username > .username-center {
+    flex: 0 0 158px !important; /* 고정 크기 */
+    width: 158px !important; /* 고정 너비 */
+    min-width: 158px !important;
+    max-width: 158px !important;
+    height: 100% !important; /* 부모(username)의 height(42px)에 맞춤 */
+    padding: 0 !important;
+    margin: 0 !important;
+    margin-left: -1px !important; /* 왼쪽으로 1px 겹치기 */
+    border: none !important;
+    outline: none !important;
+    position: relative !important;
+    display: block !important;
+    z-index: 0 !important; /* 가운데가 아래 */
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    /* 크기 변화 방지 */
+    transition: none !important;
+    animation: none !important;
+    /* 렌더링 최적화 */
+    contain: layout size style !important;
+    /* 텍스트 스타일 */ 
+    color: #f0ebe6 !important;
+    font-family: 'Spoqa Han Sans', 'Spoqa Han Sans KR', sans-serif !important;
+    font-size: 20px !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.5px !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+    /* 텍스트를 중앙에 배치 */
+    text-align: center !important;
+    padding: 9.5px 12px 0 12px !important;
+    box-sizing: border-box !important;
+}
+
+/* username-center 내부의 span에만 transform 적용 */
+.theme-unicorn-overlord .username > .username-center > span {
+    display: inline-block !important;
+    transform: scaleX(0.85) !important; /* 85%로 좌우 압축 */
+    transform-origin: center center !important;
+}
+
+/* center 배경 이미지를 ::before로 배치 */
+.theme-unicorn-overlord .username > .username-center::before {
     content: '' !important;
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    background: #ffffff !important;
-    z-index: 2 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-image: url('../../assets/images/Unicorn_Name_Center.png') !important;
+    background-size: 100% 100% !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    z-index: -1 !important;
+}
+
+/* 오른쪽 영역 - Name Right 이미지 (message-right와 동일한 구조) */
+.theme-unicorn-overlord .username > .username-right {
+    width: 40px !important;
+    flex: 0 0 40px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background-image: url('../../assets/images/Unicorn_Name_Right.png') !important;
+    background-size: auto 100% !important; /* 비율 유지하여 품질 개선 */
+    background-position: 0 0 !important;
+    background-repeat: no-repeat !important;
+    image-rendering: auto !important; /* 기본 렌더링 사용 (부드러운 보간) */
+    -ms-interpolation-mode: bicubic !important; /* IE용 고품질 보간 */
+    will-change: transform !important; /* 하드웨어 가속 */
+    backface-visibility: hidden !important; /* 렌더링 최적화 */
+    transform: translateZ(0) !important; /* GPU 가속 활성화 */
     pointer-events: none !important;
-    /* 내부 영역 마스크 - 내부 코너 잘림 (20px 반경) */
-    -webkit-mask-image: 
-        radial-gradient(circle 20px at 0 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 0 100%, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 100%, transparent 0, transparent 20px, black 20px, black 100%);
-    -webkit-mask-size: 50% 50%;
-    -webkit-mask-position: top left, top right, bottom left, bottom right;
-    -webkit-mask-repeat: no-repeat;
-    mask-image: 
-        radial-gradient(circle 20px at 0 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 0, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 0 100%, transparent 0, transparent 20px, black 20px, black 100%),
-        radial-gradient(circle 20px at 100% 100%, transparent 0, transparent 20px, black 20px, black 100%);
-    mask-size: 50% 50%;
-    mask-position: top left, top right, bottom left, bottom right;
-    mask-repeat: no-repeat;
+    max-width: 40px !important;
+    min-width: 40px !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
 }
 
-.theme-unicorn-overlord .chat-message-container {
-    position: relative !important;
-    display: inline-block !important;
-    width: fit-content !important;
-    max-width: 95% !important;
-}
-
-/* Icons - Hidden */
-.theme-unicorn-overlord .rocket-icon {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-.theme-unicorn-overlord .star-icon {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* Username - Hidden */
-.theme-unicorn-overlord .username {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-}
-
-/* Message Text */
+/* Message Text - JoseonShinmyeongjo 폰트 및 검은색 텍스트 */
 .theme-unicorn-overlord .message {
-    color: #6B46C1 !important;
-    line-height: 1.6 !important;
     position: relative !important;
+    font-family: 'JoseonShinmyeongjo', sans-serif !important;
+    font-size: 20px !important; /* 폰트 크기 (조정 가능) */
+    color: #000000 !important; /* 검은색 */
     font-weight: 600 !important;
-    text-shadow: none !important;
-    margin-top: 0 !important;
-    z-index: 11 !important;
-    display: block !important;
-    visibility: visible !important;
-    font-size: 16px !important;
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    word-wrap: break-word !important;
-    hyphens: none !important;
-    white-space: normal !important;
-    text-align: center !important;
-    font-family: 'CookieRun-Regular', 'Ownglyph_ParkDaHyun', sans-serif !important;
+    text-align: center !important; /* 왼쪽 정렬 */
+    flex: 1 !important; /* 남은 공간 차지 */
+    /* 텍스트 수평 압축 (좌우로 압축) - 텍스트만 압축 */
+    transform: scaleX(0.9) !important; /* 60%로 수평 압축 (조정 가능: 0.5~0.7) */
+    /* 최대 2줄로 제한 */
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 1 !important; /* 최대 2줄 */
+    line-clamp: 2 !important; /* 표준 속성 */
+    -webkit-box-orient: vertical !important;
+    line-height: 1.5 !important;
+    z-index: 1 !important; /* 텍스트가 배경 위에 표시되도록 */
+    min-width: 0 !important; /* flex overflow 방지 */
 }
-
-.theme-unicorn-overlord .message.message-short {
-    text-align: center !important;
-}
-
-.theme-unicorn-overlord .message.message-long {
-    text-align: left !important;
-}
-
-/* Animation */
-.theme-unicorn-overlord .chat-message-container {
-    animation: unicornOverlordSlideIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
-}
-
-@keyframes unicornOverlordSlideIn {
-    0% {
-        opacity: 0;
-        transform: translateX(-80px) translateY(30px) scale(0.8) rotate(-2deg);
-        filter: blur(8px);
-    }
-    30% {
-        opacity: 0.3;
-        transform: translateX(-40px) translateY(15px) scale(0.9) rotate(-1deg);
-        filter: blur(4px);
-    }
-    70% {
-        opacity: 0.8;
-        transform: translateX(-10px) translateY(-5px) scale(1.05) rotate(0deg);
-        filter: blur(1px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(0) translateY(0) scale(1) rotate(0deg);
-        filter: blur(0);
-    }
-}
-

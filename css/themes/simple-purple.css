@@ -2,6 +2,19 @@
    THEME: SIMPLE PURPLE
    ============================================ */
 
+/* Chat Messages - 페이드 마스크 필터 지원 */
+.theme-simple-purple .chat-messages {
+    /* 기본값: mask 없음 */
+    mask: none !important;
+    -webkit-mask: none !important;
+}
+
+/* mask가 적용된 상태 (클래스로 제어) */
+.theme-simple-purple .chat-messages.fade-mask-enabled {
+    mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%) !important;
+    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%) !important;
+}
+
 /* Alignment Styles */
 .theme-simple-purple.align-left .chat-message-container {
     align-self: flex-start;

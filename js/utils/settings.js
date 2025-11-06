@@ -89,7 +89,8 @@ class SettingsManager {
             })(),
             fadeTime: serverSettings?.fadeTime != null ? String(serverSettings.fadeTime) : localStorage.getItem(STORAGE_KEYS.CHAT_FADE_TIME || 'chat-fade-time') || '0',
             theme: serverSettings?.theme || localStorage.getItem(STORAGE_KEYS.CHAT_THEME || 'chat-theme') || 'simple-purple',
-            maxNicknameLength: serverSettings?.maxNicknameLength != null ? String(serverSettings.maxNicknameLength) : localStorage.getItem(STORAGE_KEYS.CHAT_MAX_NICKNAME_LENGTH || 'chat-max-nickname-length') || '5'
+            maxNicknameLength: serverSettings?.maxNicknameLength != null ? String(serverSettings.maxNicknameLength) : localStorage.getItem(STORAGE_KEYS.CHAT_MAX_NICKNAME_LENGTH || 'chat-max-nickname-length') || '5',
+            fadeMask: serverSettings?.fadeMask != null ? serverSettings.fadeMask : (localStorage.getItem(STORAGE_KEYS.CHAT_FADE_MASK || 'chat-fade-mask') === 'true')
         };
         
         // 메모리 설정도 업데이트 (동기화)
@@ -103,7 +104,8 @@ class SettingsManager {
             alignment: storedSettings.alignment,
             fadeTime: parseInt(storedSettings.fadeTime) || 0,
             theme: storedSettings.theme,
-            maxNicknameLength: parseInt(storedSettings.maxNicknameLength) || 5
+            maxNicknameLength: parseInt(storedSettings.maxNicknameLength) || 5,
+            fadeMask: storedSettings.fadeMask
         };
         
         const elements = {
@@ -112,13 +114,18 @@ class SettingsManager {
             'chat-alignment': storedSettings.alignment,
             'chat-fade-time': storedSettings.fadeTime,
             'chat-theme-select': storedSettings.theme,
-            'chat-max-nickname-length': storedSettings.maxNicknameLength
+            'chat-max-nickname-length': storedSettings.maxNicknameLength,
+            'chat-fade-mask': storedSettings.fadeMask
         };
         
         Object.entries(elements).forEach(([id, value]) => {
             const element = document.getElementById(id);
             if (element) {
-                element.value = value;
+                if (element.type === 'checkbox') {
+                    element.checked = value;
+                } else {
+                    element.value = value;
+                }
             }
         });
     }
@@ -152,6 +159,9 @@ class SettingsManager {
         const parsedFadeTime = parseNumber(fadeTimeInput, defaultFadeTime);
         const parsedMaxNicknameLength = parseNumber(maxNicknameLengthInput, defaultMaxNicknameLength);
         
+        const fadeMaskEl = document.getElementById('chat-fade-mask');
+        const fadeMask = fadeMaskEl ? fadeMaskEl.checked : true;
+        
         const newSettings = {
             theme: this.getElementValue('chat-theme-select') || 'simple-purple',
             channelId: this.getElementValue('chat-channel-id') || '',
@@ -162,7 +172,8 @@ class SettingsManager {
                 return alignment === 'default' ? 'left' : alignment;
             })(),
             fadeTime: parsedFadeTime,
-            maxNicknameLength: parsedMaxNicknameLength
+            maxNicknameLength: parsedMaxNicknameLength,
+            fadeMask: fadeMask
         };
         
         this.updateModuleSettings('chat', newSettings);
@@ -189,7 +200,8 @@ class SettingsManager {
             'maxMessages': STORAGE_KEYS.CHAT_MAX_MESSAGES || 'chat-max-messages',
             'alignment': STORAGE_KEYS.CHAT_ALIGNMENT || 'chat-alignment',
             'fadeTime': STORAGE_KEYS.CHAT_FADE_TIME || 'chat-fade-time',
-            'maxNicknameLength': STORAGE_KEYS.CHAT_MAX_NICKNAME_LENGTH || 'chat-max-nickname-length'
+            'maxNicknameLength': STORAGE_KEYS.CHAT_MAX_NICKNAME_LENGTH || 'chat-max-nickname-length',
+            'fadeMask': STORAGE_KEYS.CHAT_FADE_MASK || 'chat-fade-mask'
         };
         
         // 각 설정값을 localStorage에 저장

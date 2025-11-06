@@ -111,6 +111,7 @@
     display: inline-block;
     width: 50px;
     height: 28px;
+    flex-shrink: 0;
 }
 
 .switch.small {
@@ -391,6 +392,23 @@ input:checked + .slider:before {
     flex: 1;
     color: #4a5568;
     font-weight: 500;
+}
+
+/* 토글바 스타일 조정 */
+.setting-item > label.switch {
+    flex: 0 0 auto;
+    margin-left: auto;
+    width: 50px;
+    height: 28px;
+}
+
+.setting-item > label.switch.small {
+    width: 40px;
+    height: 22px;
+}
+
+.setting-item label:not(.switch) {
+    flex: 1;
 }
 
 .setting-item input[type="number"],

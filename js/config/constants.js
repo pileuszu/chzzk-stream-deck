@@ -129,6 +129,7 @@
         CHAT_ALIGNMENT: 'chat-alignment',
         CHAT_FADE_TIME: 'chat-fade-time',
         CHAT_MAX_NICKNAME_LENGTH: 'chat-max-nickname-length',
+        CHAT_FADE_MASK: 'chat-fade-mask',
         SERVER_URL: 'serverUrl',
         DARK_MODE: 'dark-mode'
     };

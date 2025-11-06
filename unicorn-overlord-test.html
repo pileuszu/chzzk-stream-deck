@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unicorn Overlord Theme 테스트</title>
+    
+    <!-- 폰트 로드 -->
+    <style>
+        @font-face {
+            font-family: 'Ownglyph_ParkDaHyun';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/2411-3@1.0/Ownglyph_ParkDaHyun.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'CookieRun-Regular';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/CookieRun-Regular.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        /* 기본 스타일 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Ownglyph_ParkDaHyun', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .controls label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .controls select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            background: #9370DF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .controls button:hover {
+            background: #7B68EE;
+        }
+
+        .info {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .info h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .info p {
+            color: #666;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        /* 채팅 컨테이너 기본 스타일 */
+        .chat-container {
+            width: 800px;
+            height: 600px;
+            padding: 60px 60px 60px 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 100%;
+            overflow: hidden;
+            padding: 20px 20px 20px 60px;
+            position: relative;
+            justify-content: flex-end;
+            align-items: flex-start;
+            mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%);
+            -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%);
+        }
+
+        .align-left .chat-messages {
+            align-items: flex-start;
+        }
+
+        .align-right .chat-messages {
+            align-items: flex-end;
+        }
+
+        .align-center .chat-messages {
+            align-items: center;
+        }
+
+        .align-left .chat-message-container,
+        .align-right .chat-message-container,
+        .align-center .chat-message-container {
+            max-width: 80%;
+        }
+
+        .align-left .chat-message,
+        .align-right .chat-message,
+        .align-center .chat-message {
+            max-width: 100%;
+        }
+
+        .align-right .chat-message {
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .align-center .chat-message {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* 기본 메시지 스타일 */
+        .chat-message {
+            opacity: 0;
+            transform: translateX(-20px);
+            padding: 16px 22px;
+            border-radius: 18px;
+            backdrop-filter: blur(10px);
+            word-break: keep-all;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            margin: 0 5px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .username {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 6px;
+            display: block;
+            line-height: 1.2;
+            font-family: 'Ownglyph_ParkDaHyun', sans-serif;
+        }
+
+        .message {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #ffffff;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            text-align: center;
+            font-family: 'Ownglyph_ParkDaHyun', sans-serif;
+        }
+
+        .rocket-icon,
+        .star-icon {
+            display: none;
+        }
+    </style>
+    
+    <!-- Unicorn Overlord 테마 CSS -->
+    <link rel="stylesheet" href="css/themes/unicorn-overlord.css">
+</head>
+<body>
+    <div class="info">
+        <h3>Unicorn Overlord 테마 테스트 페이지</h3>
+        <p>
+            CSS 파일을 수정하면 자동으로 반영됩니다. 브라우저에서 새로고침(F5)하거나 
+            CSS 파일을 저장하면 변경사항을 확인할 수 있습니다.
+        </p>
+    </div>
+
+    <div class="controls">
+        <label for="alignment">정렬:</label>
+        <select id="alignment">
+            <option value="left">왼쪽</option>
+            <option value="right">오른쪽</option>
+            <option value="center">가운데</option>
+        </select>
+
+        <button onclick="addTestMessage()">새 메시지 추가</button>
+        <button onclick="clearMessages()">모두 지우기</button>
+        <button onclick="location.reload()">새로고침</button>
+    </div>
+
+    <div class="chat-container theme-unicorn-overlord align-left" id="chatContainer">
+        <div class="chat-messages" id="chatMessages">
+            <!-- 테스트 메시지들 -->
+            <div class="chat-message-container">
+                <div class="rocket-icon"></div>
+                <div class="username"><div class="username-left"></div><div class="username-center"><span>테스트유저1</span></div><div class="username-right"></div></div>
+                <div class="chat-message"><div class="message-left"></div><div class="message-center"><div class="message message-short">안녕하세요!</div><div class="star-icon"></div></div><div class="message-right"></div></div>
+            </div>
+
+            <div class="chat-message-container">
+                <div class="rocket-icon"></div>
+                <div class="username"><div class="username-left"></div><div class="username-center"><span>테스트유저2</span></div><div class="username-right"></div></div>
+                <div class="chat-message"><div class="message-left"></div><div class="message-center"><div class="message message-long">이것은 좀 더 긴 메시지입니다. 여러 줄로 표시될 수 있는 메시지를 테스트하기 위한 것입니다.</div><div class="star-icon"></div></div><div class="message-right"></div></div>
+            </div>
+
+            <div class="chat-message-container">
+                <div class="rocket-icon"></div>
+                <div class="username"><div class="username-left"></div><div class="username-center"><span>테스트유저3</span></div><div class="username-right"></div></div>
+                <div class="chat-message"><div class="message-left"></div><div class="message-center"><div class="message message-short">짧은 메시지</div><div class="star-icon"></div></div><div class="message-right"></div></div>
+            </div>
+
+            <div class="chat-message-container">
+                <div class="rocket-icon"></div>
+                <div class="username"><div class="username-left"></div><div class="username-center"><span>테스트유저4</span></div><div class="username-right"></div></div>
+                <div class="chat-message"><div class="message-left"></div><div class="message-center"><div class="message message-long">매우 긴 메시지를 테스트하는 중입니다. 이런 긴 메시지가 어떻게 표시되는지 확인할 수 있습니다. 여러 줄로 나뉘어서 표시되어야 합니다.</div><div class="star-icon"></div></div><div class="message-right"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 정렬 변경
+        document.getElementById('alignment').addEventListener('change', function(e) {
+            const container = document.getElementById('chatContainer');
+            container.classList.remove('align-left', 'align-right', 'align-center');
+            container.classList.add('align-' + e.target.value);
+        });
+
+        // 테스트 메시지 추가
+        function addTestMessage() {
+            const messages = [
+                '안녕하세요!',
+                '테스트 메시지입니다.',
+                '이것은 새로운 메시지입니다.',
+                'CSS 스타일을 확인하는 중입니다.',
+                '긴 메시지 테스트: 이것은 매우 긴 메시지입니다. 여러 줄로 표시될 수 있는 메시지를 테스트하기 위한 것입니다.',
+                'ㅋ'
+            ];
+            
+            const usernames = ['유저1', '유저2', '유저3', '테스터', '개발자'];
+            
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            const randomUsername = usernames[Math.floor(Math.random() * usernames.length)];
+            const messageLength = randomMessage.length;
+            const messageClass = messageLength <= 10 ? 'message-short' : 'message-long';
+
+            const container = document.getElementById('chatMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message-container';
+            messageElement.innerHTML = `<div class="rocket-icon"></div><div class="username"><div class="username-left"></div><div class="username-center"><span>${randomUsername}</span></div><div class="username-right"></div></div><div class="chat-message"><div class="message-left"></div><div class="message-center"><div class="message ${messageClass}">${randomMessage}</div><div class="star-icon"></div></div><div class="message-right"></div></div>`;
+            
+            container.appendChild(messageElement);
+            
+            // 스크롤을 맨 아래로
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 모든 메시지 지우기
+        function clearMessages() {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = '';
+        }
+
+        // CSS 파일 변경 감지 (개발용)
+        if (window.location.protocol === 'file:') {
+            console.log('로컬 파일 모드입니다. CSS 파일을 수정한 후 브라우저를 새로고침하세요.');
+        } else {
+            // 서버 모드에서는 자동 새로고침 가능
+            let lastModified = null;
+            setInterval(async () => {
+                try {
+                    const response = await fetch('css/themes/unicorn-overlord.css?t=' + Date.now());
+                    const text = await response.text();
+                    const modified = response.headers.get('last-modified');
+                    
+                    if (lastModified && modified && modified !== lastModified) {
+                        console.log('CSS 파일이 변경되었습니다. 새로고침합니다...');
+                        location.reload();
+                    }
+                    lastModified = modified;
+                } catch (e) {
+                    // 무시
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
+

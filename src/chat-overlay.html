@@ -69,9 +69,8 @@
             position: relative;
             justify-content: flex-end;
             align-items: flex-start; /* 기본 정렬: 왼쪽 */
-            /* 자연스러운 상단 페이드아웃 효과 */
-            mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%);
-            -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.1) 8%, rgba(0,0,0,0.4) 16%, rgba(0,0,0,0.7) 24%, rgba(0,0,0,0.9) 32%, black 40%);
+            /* mask는 JavaScript의 applyFadeMask 함수에서 동적으로 설정됨 */
+            /* 기본값은 없음 (설정에 따라 적용) */
         }
 
         /* ===== 정렬 방식 CSS ===== */
@@ -263,12 +262,16 @@
             /**
              * 초기화
              */
-            init() {
-                // 기본 테마 로드
-                this.loadThemeStylesheet(this.theme);
-                this.loadSettings();
-                this.connectToServer();
+            async init() {
+                // 초기화 시 기존 메시지 정리 (새로고침 시 남아있을 수 있는 메시지 제거)
+                this.clearAllMessages();
+                
+                // 설정을 먼저 로드 (await로 완료 대기)
+                await this.loadSettings();
+                
+                // 설정 로드 후 서버 연결 및 이벤트 리스너 설정
                 this.setupEventListeners();
+                this.connectToServer();
                 this.startSettingsPolling();
             }
 
@@ -439,6 +442,7 @@
                 const KEY_ALIGNMENT = STORAGE_KEYS.CHAT_ALIGNMENT || 'chat-alignment';
                 const KEY_MAX_NICKNAME_LENGTH = STORAGE_KEYS.CHAT_MAX_NICKNAME_LENGTH || 'chat-max-nickname-length';
                 const KEY_CHANNEL_ID = STORAGE_KEYS.CHAT_CHANNEL_ID || 'chat-channel-id';
+                const KEY_FADE_MASK = STORAGE_KEYS.CHAT_FADE_MASK || 'chat-fade-mask';
                 
                 // localStorage에서 설정값 원본 읽기 (폴백)
                 const rawSettings = {
@@ -448,7 +452,8 @@
                     serverUrl: localStorage.getItem(KEY_SERVER_URL),
                     alignment: serverSettings?.alignment || localStorage.getItem(KEY_ALIGNMENT),
                     maxNicknameLength: serverSettings?.maxNicknameLength != null ? String(serverSettings.maxNicknameLength) : localStorage.getItem(KEY_MAX_NICKNAME_LENGTH),
-                    channelId: serverSettings?.channelId || localStorage.getItem(KEY_CHANNEL_ID)
+                    channelId: serverSettings?.channelId || localStorage.getItem(KEY_CHANNEL_ID),
+                    fadeMask: serverSettings?.fadeMask != null ? serverSettings.fadeMask : (localStorage.getItem(KEY_FADE_MASK) === 'true')
                 };
                 
                 // 설정값 처리
@@ -536,6 +541,24 @@
                 }
                 this.applyChatAlignment(alignmentToApply);
                 
+                // 페이드 마스크 필터 적용 (명시적으로 boolean 변환)
+                // 서버에서 boolean으로 오거나, localStorage에서 'true'/'false' 문자열로 올 수 있음
+                console.log('[FadeMask] rawSettings.fadeMask:', rawSettings.fadeMask, 'type:', typeof rawSettings.fadeMask);
+                console.log('[FadeMask] serverSettings?.fadeMask:', serverSettings?.fadeMask);
+                
+                let fadeMaskEnabled = false;
+                if (rawSettings.fadeMask === true || rawSettings.fadeMask === 'true') {
+                    fadeMaskEnabled = true;
+                } else if (rawSettings.fadeMask === false || rawSettings.fadeMask === 'false') {
+                    fadeMaskEnabled = false;
+                } else {
+                    // 설정이 없을 때만 기본값: true (기존 동작 유지)
+                    fadeMaskEnabled = true;
+                }
+                
+                console.log('[FadeMask] 최종 fadeMaskEnabled:', fadeMaskEnabled);
+                this.applyFadeMask(fadeMaskEnabled);
+                
                 // 최대 메시지 수 변경 시 기존 메시지 정리
                 const currentMessageCount = this.messages.length;
                 if (currentMessageCount > this.maxMessages) {
@@ -593,6 +616,62 @@
             }
 
             /**
+             * 페이드 마스크 필터 적용/제거
+             */
+            applyFadeMask(enabled) {
+                const chatMessages = this.elements.chatMessages;
+                const chatContainer = this.elements.chatContainer;
+                if (!chatMessages) {
+                    console.warn('[FadeMask] chatMessages 요소를 찾을 수 없습니다');
+                    return;
+                }
+                
+                console.log(`[FadeMask] 필터 ${enabled ? '적용' : '제거'} (테마: ${this.theme})`);
+                
+                // 클래스 기반으로 제어 (CSS의 !important와 충돌 방지)
+                if (enabled) {
+                    // 필터 적용 - 클래스 추가
+                    chatMessages.classList.add('fade-mask-enabled');
+                } else {
+                    // 필터 제거 - 클래스 제거
+                    chatMessages.classList.remove('fade-mask-enabled');
+                    
+                    // 혹시 모를 인라인 스타일도 제거
+                    chatMessages.style.removeProperty('mask');
+                    chatMessages.style.removeProperty('-webkit-mask');
+                    chatMessages.style.removeProperty('mask-composite');
+                    chatMessages.style.removeProperty('-webkit-mask-composite');
+                    
+                    // chat-container에도 mask가 있을 수 있으므로 제거
+                    if (chatContainer) {
+                        chatContainer.style.removeProperty('mask');
+                        chatContainer.style.removeProperty('-webkit-mask');
+                        chatContainer.style.removeProperty('mask-composite');
+                        chatContainer.style.removeProperty('-webkit-mask-composite');
+                    }
+                    
+                    // 강제 리플로우 트리거 (브라우저 렌더링 캐시 무효화)
+                    void chatMessages.offsetHeight;
+                    if (chatContainer) {
+                        void chatContainer.offsetHeight;
+                    }
+                }
+                
+                // 실제 computed style 확인
+                const computedStyle = window.getComputedStyle(chatMessages);
+                console.log('[FadeMask] 적용 후 클래스:', chatMessages.classList.contains('fade-mask-enabled'));
+                console.log('[FadeMask] 적용 후 computed mask:', computedStyle.mask);
+                console.log('[FadeMask] 적용 후 computed webkitMask:', computedStyle.webkitMask);
+                
+                // chat-container의 computed style도 확인
+                if (chatContainer) {
+                    const containerComputed = window.getComputedStyle(chatContainer);
+                    console.log('[FadeMask] chat-container computed mask:', containerComputed.mask);
+                    console.log('[FadeMask] chat-container computed webkitMask:', containerComputed.webkitMask);
+                }
+            }
+
+            /**
              * 서버 연결
              */
             connectToServer() {
@@ -611,6 +690,14 @@
                     this.eventSource.onmessage = (event) => {
                         try {
                             const message = JSON.parse(event.data);
+                            
+                            // 설정 변경 메시지 처리
+                            if (message.type === 'settings') {
+                                this.loadSettings();
+                                return;
+                            }
+                            
+                            // 일반 채팅 메시지 처리
                             this.addMessage(message);
                         } catch (error) {
                             console.error('메시지 파싱 오류:', error);
@@ -686,6 +773,17 @@
              * 진짜 페이드 아웃 효과 적용
              */
             applyFadeEffect() {
+                // unicorn-overlord 테마는 mask로 fade 효과를 처리하므로 이 함수는 실행하지 않음
+                if (this.theme === 'unicorn-overlord') {
+                    // unicorn-overlord에서는 모든 메시지의 opacity를 1로 유지 (mask가 fade 효과 담당)
+                    const messageContainers = this.elements.chatMessages.querySelectorAll('.chat-message-container');
+                    messageContainers.forEach((container) => {
+                        container.style.opacity = '1';
+                        container.style.filter = 'none';
+                    });
+                    return;
+                }
+                
                 const messageContainers = this.elements.chatMessages.querySelectorAll('.chat-message-container');
                 const messageCount = messageContainers.length;
                 
@@ -748,8 +846,8 @@
                             starIcon.style.filter = 'drop-shadow(0 0 6px rgba(147, 112, 219, 0.6))';
                         }
                         
-                        // 닉네임 박스 효과
-                        if (username) {
+                        // 닉네임 박스 효과 (unicorn-overlord는 제외)
+                        if (username && this.theme !== 'unicorn-overlord') {
                             username.style.transform = 'scale(1.05)';
                             username.style.filter = 'none';
                         }
@@ -769,7 +867,7 @@
                                 starIcon.style.filter = 'none';
                             }
                             
-                            if (username) {
+                            if (username && this.theme !== 'unicorn-overlord') {
                                 username.style.transform = 'scale(1)';
                                 username.style.filter = 'none';
                             }
@@ -803,14 +901,67 @@
                 // 10자 이하면 가운데 정렬, 10자 초과면 왼쪽 정렬
                 const messageClass = messageLength <= 10 ? 'message-short' : 'message-long';
                 
+                // unicorn-overlord 테마일 때만 3개 영역 구조 사용
+                let messageHTML = '';
+                let usernameHTML = '';
+                if (this.theme === 'unicorn-overlord') {
+                    // 공백 제거를 위해 한 줄로 작성
+                    messageHTML = `<div class="chat-message"><div class="message-left"></div><div class="message-center"><div class="message ${messageClass}">${processedMessage}</div><div class="star-icon"></div></div><div class="message-right"></div></div>`;
+                    // 닉네임도 3개 영역으로 나눔 (공백 제거를 위해 한 줄로, 텍스트를 span으로 감싸서 압축)
+                    usernameHTML = `<div class="username"><div class="username-left"></div><div class="username-center"><span>${displayUsername}</span></div><div class="username-right"></div></div>`;
+                } else {
+                    messageHTML = `
+                        <div class="chat-message">
+                            <div class="message ${messageClass}">${processedMessage}</div>
+                            <div class="star-icon"></div>
+                        </div>
+                    `;
+                    usernameHTML = `<span class="username">${displayUsername}</span>`;
+                }
+                
                 containerElement.innerHTML = `
                     <div class="rocket-icon"></div>
-                    <span class="username">${displayUsername}</span>
-                    <div class="chat-message">
-                        <div class="message ${messageClass}">${processedMessage}</div>
-                        <div class="star-icon"></div>
-                    </div>
+                    ${usernameHTML}
+                    ${messageHTML}
                 `;
+                
+                // unicorn-overlord 테마일 때 username 박스 크기를 즉시 고정
+                if (this.theme === 'unicorn-overlord') {
+                    const usernameEl = containerElement.querySelector('.username');
+                    if (usernameEl) {
+                        // 인라인 스타일로 크기를 즉시 고정하여 초기 렌더링 시 크기 변화 방지
+                        usernameEl.style.width = '238px';
+                        usernameEl.style.height = '42px';
+                        usernameEl.style.minWidth = '238px';
+                        usernameEl.style.maxWidth = '238px';
+                        usernameEl.style.boxSizing = 'border-box';
+                        
+                        const usernameLeft = usernameEl.querySelector('.username-left');
+                        if (usernameLeft) {
+                            usernameLeft.style.width = '40px';
+                            usernameLeft.style.flex = '0 0 40px';
+                            usernameLeft.style.minWidth = '40px';
+                            usernameLeft.style.maxWidth = '40px';
+                        }
+                        
+                        const usernameCenter = usernameEl.querySelector('.username-center');
+                        if (usernameCenter) {
+                            usernameCenter.style.width = '158px';
+                            usernameCenter.style.minWidth = '158px';
+                            usernameCenter.style.maxWidth = '158px';
+                            usernameCenter.style.flex = '0 0 158px';
+                            usernameCenter.style.boxSizing = 'border-box';
+                        }
+                        
+                        const usernameRight = usernameEl.querySelector('.username-right');
+                        if (usernameRight) {
+                            usernameRight.style.width = '40px';
+                            usernameRight.style.flex = '0 0 40px';
+                            usernameRight.style.minWidth = '40px';
+                            usernameRight.style.maxWidth = '40px';
+                        }
+                    }
+                }
                 
                 // 애니메이션 트리거 - 테마별 애니메이션 적용
                 // CSS에서 이미 테마별 애니메이션이 정의되어 있으므로 추가 설정 불필요
@@ -902,6 +1053,19 @@
                 
                 // 메시지 제거 후 페이드 효과 재적용
                 this.applyFadeEffect();
+            }
+
+            /**
+             * 모든 메시지 제거 (초기화 시 사용)
+             */
+            clearAllMessages() {
+                // DOM에서 모든 메시지 제거
+                if (this.elements.chatMessages) {
+                    this.elements.chatMessages.innerHTML = '';
+                }
+                
+                // 배열 초기화
+                this.messages = [];
             }
 
             /**
