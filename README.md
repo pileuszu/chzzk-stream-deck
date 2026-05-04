@@ -1,5 +1,10 @@
 # CHZZK Stream Deck v2.0
 
+[![Node.js 18.0.0+](https://img.shields.io/badge/Node.js-18.0.0+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Electron 28.0+](https://img.shields.io/badge/Electron-28.0+-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > **Empowering CHZZK Streamers with Real-time Chat Management and Dynamic OBS Overlays.**
 
 CHZZK Stream Deck is a high-performance, real-time chat widget management system designed specifically for the NAVER CHZZK streaming platform. It combines a robust Node.js backend with an elegant Electron-based desktop application to provide streamers with seamless chat monitoring and professional OBS Studio integration.
