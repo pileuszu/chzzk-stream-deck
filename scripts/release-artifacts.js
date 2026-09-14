@@ -43,7 +43,7 @@ function prepareArtifacts(root, output = path.join(root, 'dist/release'), tag = 
         `- 화면·A1 캡처 엔진과 OBS 로컬 플러그인이 포함돼 있습니다.\n` +
         `- 앱 실행만으로 캡처·방송·녹화를 시작하지 않습니다.\n\n` +
         `캡처에는 Voicemeeter, NDI 송신에는 NDI 6 런타임을 별도로 설치해야 합니다. ` +
-        `로컬 캡처는 OBS Studio 32.0.1 x64 기준이며 최초 자동 소스 등록에는 Python 3가 필요합니다.\n\n` +
+        `로컬 캡처는 OBS Studio 32.0.1 x64 기준입니다. 현재 OBS 장면에 소스를 자동 추가하며 연결 실패 시 설정을 유지하고 다시 시도할 수 있습니다.\n\n` +
         `설정은 사용자 AppData에 보관합니다. 개인 설정·녹화·백업은 배포 파일에 포함하지 않습니다. ` +
         `OBS 플러그인의 대응 소스·빌드 스크립트·라이선스는 앱에 함께 포함됩니다.\n`);
     return { ...release, executable, checksum };

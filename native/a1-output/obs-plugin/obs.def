@@ -15,3 +15,26 @@ EXPORTS
     video_format_get_parameters
     blog
     os_gettime_ns
+    obs_data_create
+    obs_data_create_from_json
+    obs_data_get_json
+    obs_data_release
+    obs_data_get_int
+    obs_data_set_string
+    obs_data_set_bool
+    obs_data_set_int
+    obs_enum_sources
+    obs_source_get_id
+    obs_source_get_name
+    obs_source_get_ref
+    obs_source_release
+    obs_source_create
+    obs_source_get_settings
+    obs_source_update
+    obs_scene_from_source
+    obs_scene_find_source_recursive
+    obs_scene_add
+    obs_sceneitem_set_visible
+    obs_sceneitem_set_bounds_type
+    obs_sceneitem_set_bounds
+    obs_get_video_info

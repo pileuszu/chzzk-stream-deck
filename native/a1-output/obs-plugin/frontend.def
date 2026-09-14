@@ -1,0 +1,6 @@
+LIBRARY obs-frontend-api.dll
+EXPORTS
+    obs_frontend_get_current_scene
+    obs_frontend_recording_active
+    obs_frontend_streaming_active
+    obs_frontend_save

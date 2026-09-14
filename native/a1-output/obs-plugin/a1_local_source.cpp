@@ -5,6 +5,7 @@
 #include <mmsystem.h>
 #include <sstream>
 #include <iomanip>
+#include "deck_control.hpp"
 
 OBS_DECLARE_MODULE()
 MODULE_EXPORT const char* obs_module_description(void) {
@@ -205,3 +206,6 @@ bool obs_module_load(void) {
     info.update=updateSource;info.get_defaults=defaults;info.get_properties=properties;
     obs_register_source(&info);return true;
 }
+
+void obs_module_post_load(void) { startDeckControl(); }
+void obs_module_unload(void) { stopDeckControl(); }

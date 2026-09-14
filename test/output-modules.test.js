@@ -17,7 +17,8 @@ function fixture(t, names = [], execute = async () => ({ stdout: '' })) {
         fs.writeFileSync(file, typeof data === 'string' ? data : JSON.stringify(data));
     };
     const controller = new OutputModules({ root, platform: 'win32', appData: dir, programData: dir,
-        processes: async () => new Set(names), execute, openPath: async () => '' });
+        processes: async () => new Set(names), execute, openPath: async () => '',
+        control: async () => { throw new Error('fixture: no live OBS connection'); } });
     write(path.join(root, 'sender.ini'), 'width=1920\nheight=1080\nfps=30\nbuffer_ms=500\naudio_offset_ms=0\n');
     write(path.join(root, 'build-obs/Release/a1-ndi-sender.exe'), 'fixture');
     return { root, dir, controller, write };
@@ -154,6 +155,25 @@ test('native logs cannot be fetched through the HTTP static server', async t => 
 const localCapture = require('../src/local-capture');
 const values = { width: 1920, height: 1080, fps: 30, monitor: 0, buffer_ms: 500, audio_offset_ms: 0 };
 
+test('local OBS transport handles fragmented replies and disconnects without hanging', async t=>{
+    const net=require('node:net'), {request}=require('../src/obs-control');
+    let disconnect=false;
+    const server=net.createServer(socket=>socket.on('data',data=>{
+        const message=JSON.parse(data.toString());
+        assert.equal(message.action,'status');
+        if(disconnect) return socket.end();
+        socket.write('{"version":2,');
+        setTimeout(()=>socket.write('"ok":true,"source_present":false}'),10);
+    }));
+    await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+    t.after(()=>server.close());
+    const options={endpoint:{host:'127.0.0.1',port:server.address().port},timeout:500};
+    assert.equal((await request('status',undefined,options)).source_present,false);
+    disconnect=true;
+    await assert.rejects(request('status',undefined,options),/끊어졌/);
+    await assert.rejects(request('record_start',undefined,options),/지원하지/);
+});
+
 test('local settings reject invalid fields, ranges and unsafe offsets', () => {
     for (const change of [{ width: 1921 }, { fps: 120 }, { monitor: -1 }, { buffer_ms: 100 },
         { audio_offset_ms: 401 }, { fps: '30' }, { width: NaN }, { command: 'anything' }])
@@ -188,33 +208,46 @@ test('apply requires live control before any write; unknown process state cannot
     await assert.rejects(f.controller.configure({ values, revision: state.local.revision, apply: false }), /프로세스/);
     assert.equal(fs.existsSync(path.join(f.root, 'local-capture.ini')), false);
 });
-test('local start/stop wait for matching acknowledgment without exiting OBS', async t => {
-    const calls = [];
-    const f = fixture(t, ['obs64.exe'], async (...args) => { calls.push(args); });
+test('empty live scene connects without saved registration; retry preserves config', async t => {
+    const f = fixture(t, ['obs64.exe']);
     f.write(f.controller.plugin, 'fixture');
-    f.write(f.controller.collection, { sources: [{ id: 'a1_local_sync', settings: { config_path: '', deck_config_path: path.join(f.root, 'sender.ini') } }] });
-    const bridge = path.join(f.root, 'logs/deck-control-status.json');
-    f.write(bridge, { version: 1, source_present: true, capture_requested: false });
-    f.write(path.join(f.root, 'logs/obs-status.json'), { running: false });
-    const commands = [];
-    const timer = setInterval(() => {
-        const commandFile = path.join(f.root, 'logs/deck-control-command.json');
-        if (!fs.existsSync(commandFile)) return;
-        const command = JSON.parse(fs.readFileSync(commandFile, 'utf8'));
-        fs.unlinkSync(commandFile);
-        commands.push(command.action);
-        f.write(path.join(f.root, 'logs/obs-status.json'), { running: command.action !== 'stop', healthy: true, ...values });
-        f.write(bridge, { version: 1, source_present: true, request_id: command.id, ok: true, capture_requested: command.action !== 'stop' });
-    }, 15);
-    t.after(() => clearInterval(timer));
+    let requested=false, present=false, fail=true;
+    const commands=[];
+    f.controller.control=async(action,configPath)=>{
+        if(action!=='status') {
+            commands.push(action);
+            if(fail) {fail=false;throw Error('temporary disconnect');}
+            present=true; requested=action!=='stop';
+            f.write(path.join(f.root,'logs/obs-status.json'),{running:requested,healthy:true,...values});
+        }
+        return {available:true,version:2,source_present:present,source_attached:present,
+            capture_requested:requested,config_path:present?path.join(f.root,'sender.ini'):'',scene_name:'User scene'};
+    };
+    assert.equal((await f.controller.status()).local.sourcePresent,false);
+    await assert.rejects(f.controller.action('start-local'),/temporary/);
+    assert.equal(f.controller.busy,false);
     await f.controller.action('start-local');
+    assert.equal((await f.controller.status()).local.running,true);
     await f.controller.action('stop-local');
-    assert.deepEqual(commands, ['start', 'stop']);
-    assert.deepEqual(calls, []);
-    assert.equal((await f.controller.status()).local.configPath, path.join(f.root, 'sender.ini'));
-    f.controller.processes = async () => new Set(['obs64.exe', 'a1-ndi-sender.exe']);
-    await assert.rejects(f.controller.action('start-local'), /NDI/);
+    assert.deepEqual(commands,['start','start','stop']);
+    assert.equal(fs.existsSync(f.controller.collection),false);
+    assert.equal((await f.controller.status()).local.config.fps,'30');
 });
+
+test('missing configuration previews a backup then restores on save', async t=>{
+    const f=fixture(t);
+    const missing=path.join(f.root,'local-capture.ini');
+    f.write(f.controller.collection,{sources:[{id:'a1_local_sync',settings:{config_path:missing}}]});
+    f.write(missing+'.bak','width=1920\nheight=1080\nfps=60\nmonitor=0\nbuffer_ms=700\naudio_offset_ms=20\n');
+    const state=await f.controller.status();
+    assert.equal(state.local.configRecovered,true);
+    assert.equal(state.local.config.fps,'60');
+    assert.equal(fs.existsSync(missing),false);
+    await f.controller.configure({values:{...values,fps:60,buffer_ms:700,audio_offset_ms:20},revision:state.local.revision,apply:false});
+    assert.equal((await f.controller.status()).local.configRecovered,undefined);
+    assert.equal(fs.existsSync(missing),true);
+});
+
 test('stale ack cannot report success and timed-out commands are cleaned up', async t => {
     const f = fixture(t);
     f.write(path.join(f.root, 'logs/deck-control-status.json'), { version: 1, source_present: true, request_id: 'old', ok: true });

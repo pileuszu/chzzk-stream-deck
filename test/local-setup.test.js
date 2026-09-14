@@ -10,6 +10,7 @@ function fixture(t) {
     const write = (file, data) => { fs.mkdirSync(path.dirname(file),{recursive:true}); fs.writeFileSync(file,typeof data==='string'?data:JSON.stringify(data)); };
     const c = new OutputModules({root,appData:dir,programData:dir,platform:'win32',
         obsExecutable:path.join(dir,'obs64.exe'),processes:async()=>new Set(),
+        control:async()=>{throw Error('fixture: no live OBS connection');},
         execute:async(exe,args,options)=>{
             calls.push({exe,args,options});
             if (args.includes('-c')) return {stdout:'3\n'};
@@ -26,17 +27,15 @@ function fixture(t) {
     return {c,root,write,calls};
 }
 
-test('first setup installs and registers with fixed arguments, without starting OBS or capture', async t => {
+test('first setup installs without Python or changing scene collections', async t => {
     const {c,calls}=fixture(t);
     assert.equal((await c.status()).local.setup.available,true);
     assert.match((await c.action('setup-local')).message,/준비 완료/);
-    assert.equal(calls.length,3);
-    assert.equal(calls[0].exe,'py.exe');
-    assert.ok(calls[1].args.at(-1).endsWith('Install-OBSPlugin.ps1'));
-    assert.ok(calls[2].args.at(-1).endsWith('setup_obs_local.py'));
+    assert.equal(calls.length,1);
+    assert.ok(calls[0].args.at(-1).endsWith('Install-OBSPlugin.ps1'));
     assert.ok(calls.every(call=>call.options.windowsHide));
-    assert.equal((await c.status()).local.registered,true);
-    await c.action('setup-local'); assert.equal(calls.length,3);
+    assert.equal((await c.status()).local.registered,false);
+    await c.action('setup-local'); assert.equal(calls.length,1);
 });
 test('OBS running and pre-existing profile collisions never invoke setup commands', async t => {
     const f=fixture(t);
@@ -46,14 +45,16 @@ test('OBS running and pre-existing profile collisions never invoke setup command
     f.c.processes=async()=>new Set();
     f.write(path.join(f.c.profile,'basic.ini'),'existing profile');
     assert.equal((await f.c.status()).local.setup.conflict,true);
-    await assert.rejects(f.c.action('setup-local'),/기존 A1 Local/);
-    assert.equal(f.calls.length,0);
+    await f.c.action('setup-local');
+    assert.equal(f.calls.length,1);
     assert.equal(fs.readFileSync(path.join(f.c.profile,'basic.ini'),'utf8'),'existing profile');
 });
-test('missing Python fails before plugin installation and leaves source files alone', async t => {
-    const f=fixture(t); f.c.execute=async()=>{throw Error('missing Python');};
-    await assert.rejects(f.c.action('setup-local'),/Python 3/);
+test('a failed install can be retried without touching user scenes', async t => {
+    const f=fixture(t), execute=f.c.execute; f.c.execute=async()=>{throw Error('install failed');};
+    await assert.rejects(f.c.action('setup-local'),/install failed/);
     assert.equal(fs.existsSync(f.c.plugin),false); assert.equal(fs.existsSync(f.c.collection),false);
+    f.c.execute=execute; await f.c.action('setup-local');
+    assert.equal(fs.existsSync(f.c.plugin),true);
 });
 test('repairing only the missing plugin preserves an existing external source without re-registration', async t => {
     const f=fixture(t), source={sources:[{id:'a1_local_sync',settings:{config_path:path.join(f.root,'previous','sender.ini')}}]};

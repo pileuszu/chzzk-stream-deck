@@ -19,8 +19,11 @@ function syncRuntime(source, destination) {
 }
 
 function prepareRuntime(app) {
-    if (!app.isPackaged) return path.join(__dirname, '..', 'native', 'a1-output');
-    return syncRuntime(path.join(process.resourcesPath, 'a1-output'), path.join(app.getPath('userData'), 'a1-output'));
+    const root = !app.isPackaged ? path.join(__dirname, '..', 'native', 'a1-output') :
+        syncRuntime(path.join(process.resourcesPath, 'a1-output'), path.join(app.getPath('userData'), 'a1-output'));
+    const sender = path.join(root, 'sender.ini');
+    if (!fs.existsSync(sender)) fs.copyFileSync(path.join(root, 'sender.example.ini'), sender);
+    return root;
 }
 
 module.exports = { prepareRuntime, syncRuntime };

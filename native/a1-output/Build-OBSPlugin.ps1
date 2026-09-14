@@ -23,7 +23,7 @@ try { $actualHash = ([BitConverter]::ToString($sha256.ComputeHash($archiveStream
 finally { $archiveStream.Dispose(); $sha256.Dispose() }
 if ($actualHash -ne $expectedHash) { throw 'OBS source archive hash mismatch.' }
 # Only public headers and their source provenance are needed; no build-tool symlinks.
-& tar -xzf $archivePath -C $depsPath "obs-studio-$version-sources/libobs" "obs-studio-$version-sources/COPYING"
+& tar -xzf $archivePath -C $depsPath "obs-studio-$version-sources/libobs" "obs-studio-$version-sources/frontend/api" "obs-studio-$version-sources/COPYING"
 if ($LASTEXITCODE -ne 0) { throw 'OBS header extraction failed' }
 cmake -S $projectRoot -B "$projectRoot\build-obs" -G 'Visual Studio 17 2022' -A x64 -DA1_BUILD_OBS_PLUGIN=ON "-DA1_OBS_SOURCE_DIR=$sourcePath"
 if ($LASTEXITCODE -ne 0) { throw 'OBS plugin configure failed' }

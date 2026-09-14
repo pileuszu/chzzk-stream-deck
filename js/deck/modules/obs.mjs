@@ -75,37 +75,40 @@ export class ObsDeckModule extends OutputDeckModule {
     }
     canPerformOutput(action, state) {
         const local = state.local;
-        if (action === 'setup-local') return Boolean(local?.setup?.available && !local.processRunning && (!local.installed || !local.registered));
+        if (action === 'setup-local') return Boolean(local?.setup?.available && !local.processRunning);
         if (action === 'open-obs-setup') return Boolean(local?.setup?.obsInstalled && !local.processRunning);
-        if (!local?.installed || !local?.registered) return false;
+        if (!local?.installed) return false;
         if (action === 'open-obs') return !state.ndi?.processRunning;
         if (action === 'stop-local') return Boolean(local.controlAvailable && (local.running || local.captureRequested));
-        if (action === 'start-local') return !state.ndi?.processRunning && !local.running && (!local.processRunning || local.controlAvailable);
+        if (action === 'start-local') return !state.ndi?.processRunning;
         return false;
     }
     async save(context, apply) {
         if (!this.canSave(context, apply) || !this.form.reportValidity()) return false;
         const saved = await context.outputs.configure({ values: this.values(), revision: this.revision, apply });
-        if (saved) this.load(context);
+        const current = this.source(context);
+        // Applying can fail after the settings were saved. Adopt that revision
+        // only when it exactly matches this draft, so Retry is not blocked by
+        // our own successful write and no unsaved edits are discarded.
+        const stored = Object.fromEntries(Object.keys(this.values()).map(key => [key, Number(current?.config?.[key])]));
+        if (saved || JSON.stringify(stored) === JSON.stringify(this.values())) this.load(context);
         return saved;
     }
     canSave(context, apply = false) {
         const state = context.deck.outputs;
-        return Boolean(this.loaded && state?.supported && state.local?.registered && !state.processError &&
+        return Boolean(this.loaded && state?.supported && !state.processError &&
             !context.outputs?.busy && !state.busy &&
             (!apply || (state.local.running && state.local.controlAvailable && !state.ndi?.processRunning)));
     }
-    async toggle(context) {
-        const local = this.source(context);
-        const action = local?.running || local?.captureRequested ? 'stop-local' : 'start-local';
+    async toggle(context, action) {
         if (!this.canPerform(action, context)) return;
         if (action === 'start-local' && this.dirty && !await this.save(context, false)) return;
         return this.performAction(action, context);
     }
     next(context) {
-        const flow = localWorkflow(context.deck.outputs, { dirty: this.dirty, busy: context.outputs?.busy || context.deck.outputs?.busy });
+        const flow = localWorkflow(context.deck.outputs, { dirty: this.dirty, busy: context.outputs?.busy || context.deck.outputs?.busy, error: this.connectionError(context) });
         if (flow.disabled) return;
-        if (flow.action === 'start' || flow.action === 'stop') return this.toggle(context);
+        if (flow.action === 'start' || flow.action === 'stop') return this.toggle(context, flow.action + '-local');
         if (flow.action === 'prepare') return this.performAction('setup-local', context);
         if (flow.action === 'initialize') return this.performAction('open-obs-setup', context);
         if (flow.action === 'refresh') return context.outputs.refresh();
@@ -114,12 +117,15 @@ export class ObsDeckModule extends OutputDeckModule {
         help.open = true; help.querySelector('summary').focus({ preventScroll: true });
         help.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }
+    connectionError(context) {
+        return context.outputs?.lastErrorScope === 'local' ? context.outputs.lastError : '';
+    }
     refresh(context) {
         if (!this.element) return;
         const state = context.deck.outputs, local = this.source(context);
         if (!this.loaded && local?.revision) { this.load(context); return; }
         const running = Boolean(local?.running);
-        const flow = localWorkflow(state, { dirty: this.dirty, busy: context.outputs?.busy || state?.busy });
+        const flow = localWorkflow(state, { dirty: this.dirty, busy: context.outputs?.busy || state?.busy, error: this.connectionError(context) });
         if (this.prepared === false && flow.prepared) {
             document.getElementById('capture-help').open = false;
             this.element.querySelector('.panel-body').scrollTop = 0;
@@ -181,8 +187,12 @@ export class ObsDeckModule extends OutputDeckModule {
         this.text('capture-path', '설정 파일: ' + (local?.configPath || '미연결'));
         this.text('capture-error', state?.processError || local?.error || local?.capture_error || '보고된 오류 없음');
         const connectionNote = document.getElementById('capture-connection-note');
-        connectionNote.textContent = context.outputs?.lastError || '';
+        connectionNote.textContent = this.connectionError(context) || (local?.configRecovered ? '설정 파일이 없어 백업 또는 기본값을 불러왔습니다. 저장하거나 연결하면 복구됩니다.' : '');
         connectionNote.hidden = !connectionNote.textContent;
+        this.text('capture-destination-name', local?.sceneName ? 'OBS 현재 장면 · ' + local.sceneName : 'OBS 현재 선택된 장면');
+        const stop = document.getElementById('capture-stop');
+        stop.hidden = flow.action === 'stop' || !this.canPerform('stop-local', context);
+        stop.disabled = flow.disabled;
         this.element.querySelector('[data-local-action="open-obs"]').disabled = !this.canPerform('open-obs', context);
     }
 }

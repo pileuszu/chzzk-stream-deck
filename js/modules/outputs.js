@@ -36,6 +36,7 @@ class OutputModuleCards {
         if (this.busy || !this.api) return;
         this.busy = true;
         this.lastError = '';
+        this.lastErrorScope = method === 'configure' || /local/.test(payload) ? 'local' : '';
         this.render();
         this.message('처리 중…');
         try {

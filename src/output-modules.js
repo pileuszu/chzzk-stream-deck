@@ -5,6 +5,7 @@ const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const runFile = promisify(execFile);
 const localCapture = require('./local-capture');
+const obsControl = require('./obs-control');
 const ACTIONS = new Set(['start-ndi', 'stop-ndi', 'open-obs', 'open-folder', 'start-local', 'stop-local', 'setup-local', 'open-obs-setup']);
 
 function readJson(file) {
@@ -46,13 +47,14 @@ function isTrustedSender(event, window, origin) {
 class OutputModules {
     constructor({ root, appData = process.env.APPDATA, programData = process.env.ProgramData,
         platform = process.platform, execute = runFile, processes = listProcesses, openPath,
-        obsExecutable = 'C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe' }) {
+        obsExecutable = 'C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe', control = obsControl.request }) {
         this.root = root;
         this.platform = platform;
         this.execute = execute;
         this.processes = processes;
         this.openPath = openPath;
         this.obsExecutable = obsExecutable;
+        this.control = control;
         this.profile = path.join(appData || '', 'obs-studio', 'basic', 'profiles', 'A1_Local');
         this.collection = path.join(appData || '', 'obs-studio', 'basic', 'scenes', 'A1_Local.json');
         this.plugin = path.join(programData || '', 'obs-studio', 'plugins', 'a1-local-source', 'bin', '64bit', 'a1-local-source.dll');
@@ -82,16 +84,20 @@ class OutputModules {
         const obsProcess = names.has('obs64.exe');
         const collection = readJson(this.collection);
         const source = collection?.sources?.find(item => (item.id || item.versioned_id) === 'a1_local_sync');
-        const registeredConfig = source?.settings?.config_path || source?.settings?.deck_config_path;
-        const obsConfig = typeof registeredConfig === 'string' && path.isAbsolute(registeredConfig)
+        let direct = null;
+        if (obsProcess) { try { direct = await this.control('status', undefined, { timeout: 1200 }); } catch {} }
+        const registeredConfig = direct ? direct.config_path : source?.settings?.config_path || source?.settings?.deck_config_path;
+        const obsConfig = typeof registeredConfig === 'string' && path.isAbsolute(registeredConfig) &&
+            (fs.existsSync(registeredConfig) || fs.existsSync(registeredConfig + '.bak'))
             ? registeredConfig : path.join(this.root, 'sender.ini');
         const ndi = readStatus(path.join(this.root, 'logs', 'status.json'), ndiProcess);
         const directory = path.dirname(obsConfig);
         const local = readStatus(path.join(directory, 'logs', 'obs-status.json'), obsProcess);
-        const bridge = localCapture.readBridge(directory);
+        if (direct && !direct.capture_requested) local.running = false;
+        const bridge = direct || localCapture.readBridge(directory);
         const localFile = path.join(directory, 'local-capture.ini');
         const editFile = fs.existsSync(localFile) ? localFile : obsConfig;
-        const draft = localCapture.snapshot(editFile);
+        const draft = this.configSnapshot(editFile);
         const installed = fs.existsSync(this.plugin), registered = Boolean(source);
         return {
             supported: true, busy: this.busy || Boolean(this.closing), processError, root: this.root,
@@ -99,12 +105,28 @@ class OutputModules {
                 config: readConfig(path.join(this.root, 'sender.ini')) },
             local: { ...local, processRunning: obsProcess, registered,
                 installed, setup: this.setupInfo(registered, installed), configPath: editFile, directory,
+                directControl: Boolean(direct), sourcePresent: direct ? direct.source_present : registered,
+                sourceAttached: direct ? direct.source_attached : registered, sceneName: direct?.scene_name,
+                configRecovered: draft.recovered,
                 controlAvailable: Boolean(obsProcess && bridge.available), captureRequested: bridge.capture_requested,
                 recording: bridge.recording, streaming: bridge.streaming, revision: draft.revision,
                 appliedConfigPath: obsConfig,
                 external: path.resolve(path.dirname(obsConfig)).toLowerCase() !== path.resolve(this.root).toLowerCase(),
-                config: readConfig(editFile) }
+                config: Object.fromEntries(draft.text.split(/\r?\n/).map(line => /^\s*(\w+)\s*=(.*)$/.exec(line)).filter(Boolean).map(match => [match[1],match[2].trim()])) }
         };
+    }
+
+    configSnapshot(file) {
+        const current = localCapture.snapshot(file);
+        if (current.text) return current;
+        // A removed config must not turn the form into blank, disabled inputs.
+        // Preview the recovery candidate, and only write it on save/start.
+        for (const candidate of [file + '.bak', path.join(this.root, 'local-capture.ini'),
+            path.join(this.root, 'sender.ini'), path.join(this.root, 'sender.example.ini')]) {
+            const fallback = localCapture.snapshot(candidate);
+            if (fallback.text) return { ...fallback, recovered: true };
+        }
+        return current;
     }
 
     async action(action) {
@@ -146,10 +168,10 @@ class OutputModules {
                 await this.stopNdi();
                 return { message: 'NDI 송신기를 종료했습니다.' };
             }
-            if (!state.local.registered || !state.local.installed) {
+            if (!state.local.installed) {
                 throw new Error('OBS 소스를 먼저 설치·등록해 주세요. 모듈 폴더의 OUTPUT-MODULES.md를 참고하세요.');
             }
-            if (state.local.processRunning) return { message: 'OBS가 실행 중입니다. OBS에서 A1 Local 프로파일과 장면 모음을 선택하세요.' };
+            if (state.local.processRunning) return { message: 'OBS가 실행 중입니다. 현재 장면에 캡처 소스를 연결할 수 있습니다.' };
             if (state.ndi.processRunning) throw new Error('NDI 중지를 누른 후 OBS를 열어 주세요.');
             await this.runScript('Start-OBS.ps1');
             return { message: 'A1 Local로 OBS를 열었습니다. 녹화·방송 시작은 OBS에서 선택하세요.' };
@@ -163,71 +185,67 @@ class OutputModules {
         let initialized = false;
         try { initialized = fs.readdirSync(path.dirname(this.collection)).some(name => name.endsWith('.json')); } catch {}
         const built = installed || fs.existsSync(path.join(this.root, 'build-obs', 'Release', 'a1-local-source.dll'));
+        const bundled = path.join(this.root, 'build-obs', 'Release', 'a1-local-source.dll');
+        const needsUpdate = installed && fs.existsSync(bundled) && !fs.readFileSync(this.plugin).equals(fs.readFileSync(bundled));
         const obsInstalled = fs.existsSync(this.obsExecutable);
         const conflict = !registered && (fs.existsSync(this.collection) || fs.existsSync(this.profile));
-        const missingTools = (!installed && !fs.existsSync(path.join(this.root, 'Install-OBSPlugin.ps1'))) ||
-            (!registered && !fs.existsSync(path.join(this.root, 'tools', 'setup_obs_local.py')));
-        return { built, obsInstalled, initialized, conflict, missingTools,
-            available: Boolean(built && obsInstalled && initialized && !conflict && !missingTools) };
-    }
-
-    async registrationPython() {
-        for (const [exe, args] of [['py.exe', ['-3']], ['python.exe', []]]) {
-            try {
-                const reply = await this.execute(exe, [...args, '-c', 'import sys; print(sys.version_info.major)'],
-                    { windowsHide: true, timeout: 5000, maxBuffer: 8192 });
-                if (reply.stdout?.trim() === '3') return { exe, args };
-            } catch { /* Try the other standard Python launcher. */ }
-        }
-        throw new Error('자동 소스 등록에는 Python 3가 필요합니다. 설치 후 앱을 다시 열고 OBS 소스 준비를 눌러 주세요.');
+        const missingTools = (!installed || needsUpdate) && !fs.existsSync(path.join(this.root, 'Install-OBSPlugin.ps1'));
+        return { built, obsInstalled, initialized, conflict, missingTools, needsUpdate,
+            available: Boolean(built && obsInstalled && !missingTools) };
     }
 
     async setupLocal(state) {
         if (state.processError) throw new Error(state.processError);
         const local = state.local, setup = local.setup;
-        if (local.installed && local.registered) return { message: 'OBS 소스가 준비되어 있습니다. 설정 후 OBS로 전달을 시작하세요.' };
-        if (local.processRunning) throw new Error('OBS를 종료한 뒤 소스를 준비해 주세요. 방송·녹화가 끝난 뒤 진행하세요.');
-        if (!setup.built || setup.missingTools) throw new Error('캡처 엔진이 준비되지 않았습니다. 저장소에서 npm run build:native를 실행하거나 빌드된 앱을 사용하세요.');
-        if (!setup.obsInstalled) throw new Error('OBS Studio 32.0.1 x64를 기본 경로에 설치해 주세요.');
-        if (!setup.initialized) throw new Error('OBS를 한 번 실행해 초기 설정을 만든 뒤 종료해 주세요.');
-        if (setup.conflict) throw new Error('기존 A1 Local 장면 또는 프로필이 있어 자동 등록을 멈췄습니다. 설치·연결 방법에서 기존 설정을 확인하세요.');
-        // Validate the registration dependency before changing the installed plugin.
-        const python = !local.registered ? await this.registrationPython() : null;
-        if (!local.installed) {
+        if (!setup.built || setup.missingTools) throw new Error('캡처 엔진이 없습니다. 빌드된 앱을 사용하거나 npm run build:native를 실행한 뒤 다시 시도해 주세요.');
+        if (!setup.obsInstalled) throw new Error('OBS Studio 32.0.1 x64를 설치한 뒤 다시 시도해 주세요.');
+        if (!local.installed || setup.needsUpdate) {
+            if (local.processRunning) throw new Error('OBS를 종료한 뒤 다시 시도를 누르세요. 캡처 연결 도구를 설치·업데이트합니다.');
             try { await this.runScript('Install-OBSPlugin.ps1'); }
             catch (error) {
                 const detail = error.stderr?.trim() || error.message;
-                if (/requires the verified OBS/i.test(detail)) throw new Error('현재 플러그인은 OBS Studio 32.0.1 x64용입니다. 설치된 OBS 버전을 확인해 주세요.');
-                if (/Unauthorized|denied|권한|액세스/i.test(detail)) throw new Error('플러그인 설치 권한이 필요합니다. 설치·연결 방법에서 관리자 설치 단계를 확인한 뒤 다시 준비하세요.');
+                if (/requires the verified OBS/i.test(detail)) throw new Error('현재 플러그인은 OBS Studio 32.0.1 x64용입니다. OBS 버전을 확인하고 다시 시도해 주세요.');
+                if (/Unauthorized|denied|권한|액세스/i.test(detail)) throw new Error('캡처 도구 설치 권한이 없습니다. 모듈 폴더의 Install-OBSPlugin.ps1을 관리자 PowerShell로 실행한 뒤 다시 시도해 주세요.');
                 throw error;
             }
         }
-        if (python) await this.execute(python.exe, [...python.args, path.join(this.root, 'tools', 'setup_obs_local.py')],
-            { cwd: this.root, windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 });
         const ready = await this.readState();
-        if (!ready.local.installed || !ready.local.registered) throw new Error('준비 결과를 확인하지 못했습니다. 설치·연결 방법을 확인해 주세요.');
-        return { message: 'OBS 소스 준비 완료. 설정을 확인하고 OBS 열고 전달 시작을 누르세요.' };
+        if (!ready.local.installed || ready.local.setup.needsUpdate) throw new Error('설치 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
+        return { message: 'OBS 연결 준비 완료. 전달 시작을 누르면 현재 장면에 소스를 자동으로 추가합니다.' };
     }
 
     async controlLocal(action, state) {
         if (state.processError) throw new Error(state.processError);
-        if (!state.local.installed || !state.local.registered) throw new Error('OBS에 A1 Local 소스를 설치·등록해 주세요.');
-        if (action === 'start-local' && state.ndi.processRunning) throw new Error('NDI 송신을 먼저 중지해 주세요.');
+        const running = action === 'start-local';
+        if (running && state.ndi.processRunning) throw new Error('NDI 송신을 먼저 중지한 뒤 다시 시도해 주세요.');
+        if (!state.local.installed || (running && state.local.setup.needsUpdate)) {
+            if (!running) return { message: '캡처가 중지되어 있습니다.' };
+            await this.setupLocal(state);
+            state = await this.readState();
+        }
+        if (running && !localCapture.snapshot(state.local.configPath).text) {
+            const recovery = this.configSnapshot(state.local.configPath);
+            if (!recovery.text) throw new Error('기본 설정 파일이 없습니다. 앱을 다시 설치한 뒤 재시도해 주세요.');
+            localCapture.atomicWrite(state.local.configPath, recovery.text);
+            state = await this.readState();
+        }
         if (!state.local.processRunning) {
-            if (action === 'stop-local') return { message: '캡처가 중지되어 있습니다.' };
+            if (!running) return { message: '캡처가 중지되어 있습니다.' };
             await this.runScript('Start-OBS.ps1');
-            const deadline = Date.now() + 12000;
+            const deadline = Date.now() + 15000;
             do {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 state = await this.readState();
-                if (state.local.controlAvailable) break;
+                if (state.local.directControl) break;
             } while (Date.now() < deadline);
         }
-        if (!state.local.controlAvailable) throw new Error('OBS에서 A1 Local 장면 모음과 캡처 제어 도구를 연결해 주세요.');
-        const running = action === 'start-local';
-        await localCapture.sendControl(state.local.directory, running ? 'start' : 'stop');
-        await localCapture.waitForCapture(state.local.directory, running, state.local.config);
-        return { message: running ? '로컬 캡처를 시작했습니다. 화면과 A1 오디오가 OBS에 공급됩니다.' : '로컬 캡처를 중지했습니다.' };
+        if (!state.local.directControl) throw new Error('OBS 연결 도구가 아직 응답하지 않습니다. OBS 초기 설정 창을 마치거나 OBS를 다시 연 뒤 다시 시도해 주세요.');
+        const directory = state.local.directory;
+        // A stale error from a previous attempt must not fail a new start.
+        if (running) { try { fs.unlinkSync(path.join(directory, 'logs', 'obs-status.json')); } catch {} }
+        const reply = await this.control(running ? 'start' : 'stop', state.local.configPath);
+        if (running || reply.source_present) await localCapture.waitForCapture(directory, running, state.local.config);
+        return { message: running ? '현재 OBS 장면에 화면과 A1 오디오를 연결했습니다. 방송·녹화는 OBS에서 시작하세요.' : '로컬 캡처를 중지했습니다.' };
     }
 
     async configure(payload) {
@@ -241,10 +259,9 @@ class OutputModules {
         try {
             const state = await this.readState();
             if (state.processError) throw new Error(state.processError);
-            if (!state.local.registered) throw new Error('OBS에 A1 Local 소스를 먼저 등록해 주세요.');
             if (payload.apply && (!state.local.running || !state.local.controlAvailable || state.ndi.processRunning))
                 throw new Error('실행 중인 로컬 캡처에 연결한 후 적용해 주세요.');
-            const current = localCapture.snapshot(state.local.configPath);
+            const current = this.configSnapshot(state.local.configPath);
             if (!current.text || !current.revision || current.revision !== payload.revision)
                 throw new Error('다른 곳에서 설정이 변경됐습니다. 저장값 불러오기를 누른 뒤 다시 편집해 주세요.');
             const file = path.join(state.local.directory, 'local-capture.ini');
@@ -253,7 +270,8 @@ class OutputModules {
             localCapture.atomicWrite(file, localCapture.updateConfig(current.text, values));
             if (payload.apply) {
                 try {
-                    await localCapture.sendControl(state.local.directory, 'apply');
+                    try { fs.unlinkSync(path.join(state.local.directory, 'logs', 'obs-status.json')); } catch {}
+                    await this.control('apply', file);
                     await localCapture.waitForCapture(state.local.directory, true, values);
                 } catch (error) {
                     throw new Error('설정은 저장됐지만 적용을 확인하지 못했습니다. ' + error.message);

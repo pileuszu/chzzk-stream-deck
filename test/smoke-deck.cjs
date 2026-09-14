@@ -351,8 +351,8 @@ app.on('browser-window-created', (_event, window) => {
                 "await module.save(window.deck.context, true); const applied = calls[1].apply === true;\n" +
                 "const offset = document.getElementById('capture-offset'); offset.value = '9999'; offset.dispatchEvent(new Event('input', { bubbles: true }));\n" +
                 "const invalidResult = await module.save(window.deck.context, true); const invalidRevealed = invalidResult === false && offset.offsetParent !== null && calls.length === 2;\n" +
-                "module.load(window.deck.context); await module.toggle(window.deck.context); const stopped = calls.at(-1) === 'stop-local';\n" +
-                "local.running = false; local.captureRequested = false; service.render(); fps.value = fps.value === '30' ? '60' : '30'; fps.dispatchEvent(new Event('change', { bubbles: true })); await module.toggle(window.deck.context);\n" +
+                "module.load(window.deck.context); await module.toggle(window.deck.context, 'stop-local'); const stopped = calls.at(-1) === 'stop-local';\n" +
+                "local.running = false; local.captureRequested = false; service.render(); fps.value = fps.value === '30' ? '60' : '30'; fps.dispatchEvent(new Event('change', { bubbles: true })); await module.toggle(window.deck.context, 'start-local');\n" +
                 "const savedBeforeStart = calls.at(-2).apply === false && calls.at(-1) === 'start-local';\n" +
                 "service.busy = true; service.render(); const busyLocked = document.getElementById('capture-toggle').disabled && document.getElementById('capture-save').disabled && fps.disabled; service.busy = false;\n" +
                 "service.action = originalAction; service.configure = originalConfigure; service.state = originalState; module.loaded = false; module.dirty = false; service.render(); window.deck.goHome(); service.timer = setTimeout(() => service.refresh(), 3000);\n" +
@@ -408,17 +408,17 @@ app.on('browser-window-created', (_event, window) => {
             assert.deepEqual(await evaluate('window.workflowActions'),[]);
             await localFixture({installed:false,registered:false});
             let firstRun=await workflowScreen();
-            assert.equal(firstRun.stage,'setup');assert.equal(firstRun.label,'OBS 소스 준비');assert.equal(firstRun.disabled,false);
+            assert.equal(firstRun.stage,'setup');assert.equal(firstRun.label,'OBS 연결 준비');assert.equal(firstRun.disabled,false);
             assert.equal(firstRun.overflow,false);assert.ok(firstRun.footer<=420);
             await capture('local-first-setup');
             await evaluate("document.getElementById('capture-toggle').click()");
             assert.deepEqual(await evaluate('window.workflowActions'),['setup-local']);
             await localFixture({}); await capture('local-ready');
-            assert.equal((await workflowScreen()).label,'OBS 열고 전달 시작');
+            assert.equal((await workflowScreen()).label,'OBS 열고 연결');
             await evaluate("document.getElementById('capture-toggle').click()");
             assert.deepEqual(await evaluate('window.workflowActions'),['setup-local','start-local']);
             await localFixture({processRunning:true,controlAvailable:false});
-            assert.equal((await workflowScreen()).label,'연결 방법 보기');
+            assert.equal((await workflowScreen()).label,'연결 다시 시도');
             await localFixture({processRunning:true,controlAvailable:true,running:true,healthy:true,sample_rate:48000,audio_peak:.12});
             const delivering=await workflowScreen();assert.equal(delivering.step,'2');assert.match(delivering.next,/방송을 시작/);
             assert.equal(delivering.overflow,false);await capture('local-delivering');

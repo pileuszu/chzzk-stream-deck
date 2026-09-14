@@ -28,10 +28,15 @@ if(A1_BUILD_OBS_PLUGIN)
     COMMAND "${CMAKE_AR}" /NOLOGO /MACHINE:X64
       "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/obs-plugin/obs.def" "/OUT:${OBS_IMPORT_LIBRARY}"
     DEPENDS obs-plugin/obs.def VERBATIM)
-  add_library(a1-local-source MODULE obs-plugin/a1_local_source.cpp src/desktop.cpp src/voicemeeter.cpp "${OBS_IMPORT_LIBRARY}")
+  set(OBS_FRONTEND_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/frontend-import.lib")
+  add_custom_command(OUTPUT "${OBS_FRONTEND_LIBRARY}"
+    COMMAND "${CMAKE_AR}" /NOLOGO /MACHINE:X64
+      "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/obs-plugin/frontend.def" "/OUT:${OBS_FRONTEND_LIBRARY}"
+    DEPENDS obs-plugin/frontend.def VERBATIM)
+  add_library(a1-local-source MODULE obs-plugin/a1_local_source.cpp obs-plugin/deck_control.cpp src/desktop.cpp src/voicemeeter.cpp "${OBS_IMPORT_LIBRARY}" "${OBS_FRONTEND_LIBRARY}")
   target_include_directories(a1-local-source PRIVATE src obs-plugin)
-  target_include_directories(a1-local-source SYSTEM PRIVATE third_party "${A1_OBS_SOURCE_DIR}/libobs")
+  target_include_directories(a1-local-source SYSTEM PRIVATE third_party "${A1_OBS_SOURCE_DIR}/libobs" "${A1_OBS_SOURCE_DIR}/frontend/api")
   target_compile_definitions(a1-local-source PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
   target_compile_options(a1-local-source PRIVATE /W4 /wd4324 /permissive- /utf-8 /EHsc)
-  target_link_libraries(a1-local-source PRIVATE "${OBS_IMPORT_LIBRARY}" d3d11 dxgi d3dcompiler avrt winmm shell32 user32 ole32)
+  target_link_libraries(a1-local-source PRIVATE "${OBS_IMPORT_LIBRARY}" "${OBS_FRONTEND_LIBRARY}" d3d11 dxgi d3dcompiler avrt winmm shell32 user32 ole32)
 endif()

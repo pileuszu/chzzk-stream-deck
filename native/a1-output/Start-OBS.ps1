@@ -1,9 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $obsExe = 'C:\Program Files\obs-studio\bin\64bit\obs64.exe'
-$collection = Join-Path $env:APPDATA 'obs-studio\basic\scenes\A1_Local.json'
-if (-not (Test-Path -LiteralPath $collection)) { throw 'A1 Local collection is missing. See OBS-LOCAL.md for setup.' }
 if (Get-Process -Name obs64 -ErrorAction SilentlyContinue) {
-    Write-Host 'OBS is already running. Select the A1 Local profile and scene collection.'
+    Write-Host 'OBS is already running. Stream Deck connects the current scene.'
     exit 0
 }
 $senderProcesses = @(Get-Process -Name 'a1-ndi-sender' -ErrorAction SilentlyContinue)
@@ -16,5 +14,5 @@ if ($senderProcesses.Count) {
         if (-not $senderProcess.WaitForExit(10000)) { throw 'Standalone sender did not stop in time.' }
     }
 }
-Start-Process -FilePath $obsExe -WorkingDirectory (Split-Path -Parent $obsExe) -WindowStyle Normal -ArgumentList '--profile "A1 Local" --collection "A1 Local" --scene "A1 Local Broadcast"'
-Write-Host 'OBS opened with A1 Local. Recording and Internet streaming are controlled in OBS.'
+Start-Process -FilePath $obsExe -WorkingDirectory (Split-Path -Parent $obsExe) -WindowStyle Normal
+Write-Host 'OBS opened with the current scene collection. Stream Deck will attach its capture source.'
