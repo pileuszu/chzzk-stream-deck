@@ -42,9 +42,14 @@ class LocalSource {
     WinHandle stop_{CreateEventW(nullptr,TRUE,FALSE,nullptr)};
     std::thread worker_;
     std::filesystem::path configPath_;
+    std::string requestId_;
     bool testPattern_ = false;
     int64_t obsOffset_ = 0;
     Config config_;
+
+    void writeStatus(const std::filesystem::path& path,const std::string& json) const {
+        ::writeStatus(path,"{\"request_id\":"+jsonText(requestId_)+","+json.substr(1));
+    }
 
     uint64_t timestamp(Tick t) const { return uint64_t(t*100+obsOffset_); }
     void outputAudio(const AudioBlock& a,Tick t) {
@@ -164,12 +169,17 @@ public:
         SetEvent(stop_.value);if(worker_.joinable())worker_.join();
     }
     void update(obs_data_t* settings) {
+        auto previousPath=configPath_;
         stop();
+        requestId_=obs_data_get_string(settings,"deck_request_id");
         std::string path=obs_data_get_string(settings,"config_path");
         configPath_=std::filesystem::path(std::u8string(path.begin(),path.end()));
         // OBS creates a source with defaults before showing its property dialog.
         // Keep a valid idle instance so the user can select the config afterwards.
-        if(configPath_.empty()) return;
+        if(configPath_.empty()) {
+            if(!previousPath.empty()) writeStatus(previousPath.parent_path()/"logs"/"obs-status.json","{\"running\":false}");
+            return;
+        }
         testPattern_=obs_data_get_bool(settings,"test_pattern");
         ResetEvent(stop_.value);worker_=std::thread(&LocalSource::run,this);
     }

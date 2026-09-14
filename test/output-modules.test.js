@@ -256,6 +256,17 @@ test('stale ack cannot report success and timed-out commands are cleaned up', as
     await assert.rejects(localCapture.sendControl(f.root, 'record_start'), /지원하지/);
 });
 
+test('retry ignores failures and successful frames from older capture attempts', async t=>{
+    const f=fixture(t), file=path.join(f.root,'logs/obs-status.json');
+    f.write(file,{request_id:'previous',running:false,error:'Previous failure'});
+    const timer=setTimeout(()=>f.write(file,{request_id:'current',running:true,healthy:true,...values}),150);
+    t.after(()=>clearTimeout(timer));
+    const result=await localCapture.waitForCapture(f.root,true,values,{requestId:'current',timeout:1000});
+    assert.equal(result.request_id,'current');
+    f.write(file,{request_id:'previous',running:true,healthy:true,...values});
+    await assert.rejects(localCapture.waitForCapture(f.root,true,values,{requestId:'another',timeout:100}),/지연/);
+});
+
 test('application shutdown blocks new work, waits for running actions and joins native outputs', async t => {
     const f = fixture(t);
     const calls = [];

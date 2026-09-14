@@ -77,11 +77,12 @@ async function sendControl(directory, action, { timeout = 7000 } = {}) {
         if (readJson(file)?.id === id) { try { fs.unlinkSync(file); } catch {} }
     }
 }
-async function waitForCapture(directory, running, values, { timeout = 5000 } = {}) {
+async function waitForCapture(directory, running, values, { timeout = 5000, requestId } = {}) {
     const file = path.join(directory, 'logs', 'obs-status.json');
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
         const state = readJson(file);
+        if (requestId && state?.request_id !== requestId) { await pause(100); continue; }
         if (state?.running === running) {
             if (!running) return state;
             if (state.healthy && ['width', 'height', 'fps', 'buffer_ms', 'audio_offset_ms'].every(key => Number(state[key]) === Number(values[key]))) return state;

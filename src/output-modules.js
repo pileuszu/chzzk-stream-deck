@@ -241,10 +241,8 @@ class OutputModules {
         }
         if (!state.local.directControl) throw new Error('OBS 연결 도구가 아직 응답하지 않습니다. OBS 초기 설정 창을 마치거나 OBS를 다시 연 뒤 다시 시도해 주세요.');
         const directory = state.local.directory;
-        // A stale error from a previous attempt must not fail a new start.
-        if (running) { try { fs.unlinkSync(path.join(directory, 'logs', 'obs-status.json')); } catch {} }
         const reply = await this.control(running ? 'start' : 'stop', state.local.configPath);
-        if (running || reply.source_present) await localCapture.waitForCapture(directory, running, state.local.config);
+        if (running || reply.source_present) await localCapture.waitForCapture(directory, running, state.local.config, { requestId: reply.request_id });
         return { message: running ? '현재 OBS 장면에 화면과 A1 오디오를 연결했습니다. 방송·녹화는 OBS에서 시작하세요.' : '로컬 캡처를 중지했습니다.' };
     }
 
@@ -270,9 +268,8 @@ class OutputModules {
             localCapture.atomicWrite(file, localCapture.updateConfig(current.text, values));
             if (payload.apply) {
                 try {
-                    try { fs.unlinkSync(path.join(state.local.directory, 'logs', 'obs-status.json')); } catch {}
-                    await this.control('apply', file);
-                    await localCapture.waitForCapture(state.local.directory, true, values);
+                    const reply = await this.control('apply', file);
+                    await localCapture.waitForCapture(state.local.directory, true, values, { requestId: reply.request_id });
                 } catch (error) {
                     throw new Error('설정은 저장됐지만 적용을 확인하지 못했습니다. ' + error.message);
                 }

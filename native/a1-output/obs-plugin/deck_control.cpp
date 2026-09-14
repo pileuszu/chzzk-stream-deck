@@ -42,6 +42,9 @@ std::string handle(const std::string& text) {
         Data request(raw);
         if(obs_data_get_int(request.p,"version") != 2) throw std::runtime_error("Unsupported protocol");
         std::string action = obs_data_get_string(request.p,"action");
+        std::string requestId = obs_data_get_string(request.p,"id");
+        if(action!="status" && (requestId.empty() || requestId.size()>64)) throw std::runtime_error("Invalid request id");
+        obs_data_set_string(response.p,"request_id",requestId.c_str());
         if(action!="status" && action!="start" && action!="stop" && action!="apply")
             throw std::runtime_error("Unsupported command");
         if(action!="status" && obs_data_get_int(request.p,"expires_at") < static_cast<long long>(std::time(nullptr))*1000)
@@ -77,6 +80,7 @@ std::string handle(const std::string& text) {
             obs_data_set_string(settings.p,"config_path",config.c_str());
             obs_data_set_string(settings.p,"deck_config_path",config.c_str());
             obs_data_set_bool(settings.p,"test_pattern",false);
+            obs_data_set_string(settings.p,"deck_request_id",requestId.c_str());
             obs_source_update(source.p,settings.p);
             obs_frontend_save();
         } else if(action=="stop" && source.p) {
@@ -84,6 +88,7 @@ std::string handle(const std::string& text) {
             std::string previous=obs_data_get_string(settings.p,"config_path");
             if(!previous.empty()) obs_data_set_string(settings.p,"deck_config_path",previous.c_str());
             obs_data_set_string(settings.p,"config_path","");
+            obs_data_set_string(settings.p,"deck_request_id",requestId.c_str());
             obs_source_update(source.p,settings.p);
             obs_frontend_save();
         }
