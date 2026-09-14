@@ -1,52 +1,34 @@
 name: Build on Pull Request
-
 on:
   pull_request:
-    branches:
-      - develop
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'README*.md'
-      - 'BUILD_FIX.md'
-      - 'README_BUILD.md'
-      - '.git-branch-strategy.md'
-
+    branches: [develop, main]
+    paths-ignore: ['**.md']
 jobs:
-  build-test:
-    name: Build Test
-    runs-on: windows-latest
-    
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            command: npm run build:win
+            artifact: dist/*.exe
+          - os: macos-latest
+            command: npm run build:mac
+            artifact: dist/*.zip
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Clear cache
-        run: node scripts/clear-cache.js || echo "캐시 삭제 완료"
-        continue-on-error: true
-      
-      - name: Build Windows executable (test)
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: ${{ matrix.command }}
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run build:win
-      
-      # PR에서는 아티팩트만 업로드 (릴리스 생성 안 함)
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
         with:
-          name: windows-build-pr-${{ github.run_number }}
-          path: |
-            dist/*.exe
-            dist/win-unpacked/**/*
-          retention-days: 7  # PR 빌드는 짧게 보관
-
+          name: build-${{ matrix.os }}
+          path: ${{ matrix.artifact }}
+          retention-days: 7

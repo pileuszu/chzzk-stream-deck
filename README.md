@@ -1,156 +1,74 @@
-# CHZZK Stream Deck v2.0
+# CHZZK Stream Deck
 
-[![Node.js 18.0.0+](https://img.shields.io/badge/Node.js-18.0.0+-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Electron 28.0+](https://img.shields.io/badge/Electron-28.0+-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+치지직 채팅을 읽어 OBS 브라우저 소스로 보여주는 로컬 앱입니다. 채널 연결, 테마 선택, 미리보기와 설정 저장을 한 화면에서 처리합니다.
 
-> **Empowering CHZZK Streamers with Real-time Chat Management and Dynamic OBS Overlays.**
+## 빠르게 시작하기
 
-CHZZK Stream Deck is a high-performance, real-time chat widget management system designed specifically for the NAVER CHZZK streaming platform. It combines a robust Node.js backend with an elegant Electron-based desktop application to provide streamers with seamless chat monitoring and professional OBS Studio integration.
+Node.js **22.12 이상**에서 실행합니다.
 
----
-
-## ✨ Key Features
-
-- **🚀 Dual-Mode Operation**: Run as a standalone **Electron Desktop App** for a native experience or as a lightweight **Web-based Dashboard**.
-- **💬 Robust Chat Module**: Specialized WebSocket client featuring automated server discovery (supporting up to 10 fallback servers) and heartbeat maintenance for rock-solid stability.
-- **🖼️ Professional OBS Integration**: Dedicated chat overlay with real-time SSE (Server-Sent Events) synchronization, ensuring zero-latency message updates in OBS Studio.
-- **🎨 Dynamic Theme System**: Beautifully crafted themes like "Simple Purple" with advanced CSS animations, multi-layer shadows, and hover effects.
-- **🛠️ Centralized Management**: Configure channel IDs, message persistence, alignment, and nickname filtering through an intuitive control panel.
-- **📦 CI/CD Optimized**: Fully integrated GitHub Actions workflows for automated multi-platform builds and versioning.
-
----
-
-## 🛠️ Technical Architecture
-
-The system is built on a modular architecture designed for stability and extensibility:
-
-- **Backend (Node.js/Express)**: A centralized server managing chat processes, SSE streams, and static asset delivery.
-- **Chat Client (WS/SSE)**: A resilient WebSocket client that handles CHZZK authentication, message parsing, and emoticon extraction.
-- **Frontend (Next-gen Vanilla JS)**: A responsive management dashboard featuring a modern design system and real-time state synchronization.
-- **Desktop (Electron)**: A secure wrapper providing native OS integration, IPC communication, and local server lifecycle management.
-
----
-
-## 📂 Project Structure
-
-```text
-chzzk-stream-deck/
-├── src/                      # Core Logic & Resources
-│   ├── chat-client.js        # High-resilience CHZZK WebSocket client
-│   └── chat-overlay.html     # Optimized overlay for OBS Browser Source
-├── js/                       # Dashboard Logic
-│   ├── modules/              # Feature modules (Chat, UI, etc.)
-│   ├── utils/                # Settings & UI helper utilities
-│   └── main.js               # Application entry point
-├── css/                      # Design System
-│   ├── main.css              # Core layout and aesthetics
-│   ├── components.css        # Reusable UI components
-│   └── themes.css            # Dynamic theme definitions
-├── .github/workflows/        # CI/CD (Build/Release/Test)
-├── main.js                   # Electron Main Process
-├── server.js                 # Unified Backend Server
-├── index.html                # Management Dashboard
-└── config.json               # Application Configuration
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js**: v18.0.0 or higher (v20+ recommended)
-- **npm**: v8.0.0 or higher
-
-### Installation
-
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/pileuszu/chzzk-stream-deck.git
-   cd chzzk-stream-deck
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-### Running the Application
-
-#### Method 1: Desktop Mode (Recommended)
-Starts the integrated server and launches the Electron application.
-```bash
-npm run app
-```
-
-#### Method 2: Web Mode
-Starts the backend server for access via a browser.
-```bash
+```sh
+npm ci
 npm start
 ```
-- **Dashboard**: `http://localhost:7112`
-- **OBS Overlay**: `http://localhost:7112/chat-overlay.html`
 
----
+브라우저에서 <http://127.0.0.1:7112>를 엽니다. 데스크톱 창으로 사용하려면 웹 서버를 종료한 뒤 `npm run app`을 실행하세요. 두 실행 방식은 같은 포트를 사용하므로 동시에 실행하지 않습니다.
 
-## 🎥 OBS Studio Integration
+1. 치지직 채널 URL 또는 32자리 채널 ID를 입력하고 **채팅 연결**을 누릅니다.
+2. 테마와 글자 크기 등을 선택합니다. **샘플 채팅**은 저장 전 설정도 미리 보여줍니다.
+3. **방송 화면에 적용**을 누르면 저장되며, 열려 있는 OBS 오버레이에 즉시 반영됩니다.
+4. OBS의 **소스 → + → 브라우저**에서 아래 주소를 입력합니다.
 
-1. **Add Browser Source**: In OBS, add a new "Browser" source.
-2. **Configure URL**: Set the URL to `http://localhost:7112/chat-overlay.html`.
-3. **Optimized Dimensions**:
-   - **Width**: 400px (standard)
-   - **Height**: 600px
-4. **Custom CSS (Optional)**:
-   ```css
-   body { background: transparent !important; }
-   ```
-
----
-
-## ⚙️ Configuration
-
-Create or modify `config.json` in the root directory:
-
-```json
-{
-  "port": 7112,
-  "host": "localhost"
-}
+```text
+http://127.0.0.1:7112/chat-overlay.html
 ```
 
-*Note: In the portable version, placing `config.json` next to the executable overrides the default internal configuration.*
+너비 **400**, 높이 **600**부터 시작하세요. 배경은 투명하며 다른 크기에도 맞춰 표시됩니다. OBS에서 화면의 원하는 위치로 옮기면 됩니다. 방송 중에는 서버나 데스크톱 앱을 계속 켜둡니다. `/chat.html`은 기존 OBS 설정과의 호환을 위해 같은 오버레이로 연결됩니다.
 
----
+이 앱은 **채팅 오버레이**입니다. 방송을 시작하는 기능은 없으며 RTMP 주소·스트림 키도 입력하지 않습니다. 영상, NDI 소스, 마이크와 송출 설정은 OBS에서 관리합니다.
 
-## 🔨 Development & Build
+## 테마와 미리보기
 
-### Development Commands
-```bash
-# Start development server with auto-reload
-npm run dev
+- **메이플스토리**: 단풍잎, 직접 그린 픽셀 버섯, 따뜻한 퀘스트 창을 떠올리는 팬 테마. 넥슨의 공식 제품이 아닙니다.
+- **Simple Purple**: 보라색 말풍선과 별 장식.
+- **Unicorn Overlord**: 양피지와 금빛 테두리.
 
-# Run chat client directly for debugging
-node src/chat-client.js <YOUR_CHANNEL_ID> --verbose
+샘플은 미리보기 안에서만 생성됩니다. OBS와 **실제 채팅** 탭에는 실제 수신 메시지만 표시됩니다. 실제 채팅 미리보기는 저장된 설정을 사용합니다. 메시지 유지 시간이 0이면 자동 만료되지 않으며, 표시 개수와 화면 높이를 넘는 오래된 메시지는 가려집니다. 서버는 최대 200개를 메모리에 유지하며 종료하면 비워집니다.
+
+## 설정과 연결 상태
+
+- 웹 서버: 저장소의 `.data/settings.json`에 설정을 저장합니다. Git 및 앱 패키지에 포함하지 않습니다.
+- Electron: Electron `userData` 폴더의 `settings.json`에 저장합니다. macOS에서는 `~/Library/Application Support/CHZZK Stream Deck/`입니다. 웹 서버 설정과는 별도입니다.
+- `config.json`의 `host`, `port`로 수신 주소를 정합니다. 기본값은 `127.0.0.1:7112`입니다. 환경 변수 `HOST`, `PORT`, `CHZZK_DATA_DIR`로 덮어쓸 수 있습니다. 같은 맥의 OBS에서는 기본값을 사용하세요.
+- **연결 중**과 **연결됨**을 구분합니다. 서버 인증이 완료돼야 연결됨으로 표시됩니다. 연결이 끊기면 최대 8회 재시도하며, 연결 해제로 재시도를 취소할 수 있습니다.
+- 방송이 꺼져 채팅방이 없으면 이를 안내합니다. 방송을 시작한 후 다시 연결하세요. 실제 채팅이 없어도 샘플 테마는 확인할 수 있습니다.
+- 저장 파일이 손상되면 덮어쓰지 않고 시작 오류에 경로를 표시합니다. 해당 파일을 다른 이름으로 백업하고 재실행하면 기본 설정으로 시작합니다.
+
+치지직 채팅은 공개 웹 클라이언트가 사용하는 비공식 읽기 전용 API/WebSocket에 의존합니다. 치지직의 정책·인증·프로토콜 변경으로 연결이 중단될 수 있습니다. 메시지 전송, 로그인 쿠키 수집, 방송 시작은 하지 않습니다.
+
+## 개발과 검증
+
+```sh
+npm run dev        # 서버 코드 변경 시 재시작
+npm run check      # JavaScript 문법 검사
+npm test           # 설정, API/SSE, 채팅 인증·재연결, 안전한 렌더링 테스트
+npm run chat-test -- <채널ID>  # 읽기 전용 실제 채팅 연결
+npm run build:mac  # Apple Silicon DMG / ZIP
+npm run build:win  # Windows x64 portable EXE
 ```
 
-### Build Commands
-```bash
-# Build Windows Installer
-npm run build:win
+정적 HTML/CSS/JS 변경 후 브라우저를 새로고침하세요. 로컬에서 만든 macOS 빌드는 Apple 공증을 포함하지 않습니다. 공개 배포 시 개발자 서명·공증 설정이 필요합니다. GitHub Actions는 Node 22에서 테스트하며, PR에서는 macOS와 Windows 패키징을 검사합니다.
 
-# Build Portable Windows Version
-npm run build:win:portable
-```
+## 구조
 
----
+| 경로 | 역할 |
+| --- | --- |
+| `server.js` | HTTP API, SSE, 메시지 저장과 채팅 클라이언트 생명주기 |
+| `src/chat-client.js` | 공개 API 조회, WebSocket 인증·heartbeat·재연결 |
+| `src/settings-store.js` | 검증된 설정의 원자적 파일 저장 |
+| `shared/chat-config.js` | 서버·대시보드·오버레이가 공유하는 테마와 설정 규칙 |
+| `js/dashboard.js` | 방송 준비실 화면과 설정 미리보기 |
+| `js/overlay/renderer.js` | 미리보기와 OBS의 공통 DOM 렌더러 |
+| `js/overlay/main.js` | SSE와 미리보기 메시지 수신 |
+| `main.js` | Electron 실행, 단일 인스턴스, 정상 종료 |
 
-## 📜 License
-
-This project is licensed under the **MIT License**.
-
----
-
-**Developed with ❤️ for the CHZZK Community.**
-If you find this project helpful, consider leaving a ⭐ on GitHub!
+닉네임과 메시지는 텍스트 노드로 삽입합니다. 이모티콘은 HTTPS 네이버 이미지 호스트만 허용합니다. 서버 소스·패키지·개인 설정은 정적 웹 파일로 노출하지 않습니다. 테마 추가 시 공유 테마 목록, CSS와 테마 선택 카드의 표현을 함께 수정하세요.

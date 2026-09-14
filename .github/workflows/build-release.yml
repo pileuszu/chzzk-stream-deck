@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
       
       - name: Install dependencies
@@ -57,11 +57,6 @@ jobs:
           VERSION="${{ steps.extract_version.outputs.version }}"
           npm version $VERSION --no-git-tag-version
           echo "Updated package.json version to $VERSION"
-      
-      - name: Clear cache (Windows only)
-        if: matrix.os == 'windows-latest'
-        run: node scripts/clear-cache.js || echo "캐시 삭제 완료"
-        continue-on-error: true
       
       - name: Build for Windows
         if: matrix.os == 'windows-latest'

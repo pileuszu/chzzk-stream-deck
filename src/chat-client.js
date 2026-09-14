@@ -1,534 +1,293 @@
-#!/usr/bin/env node
+const { EventEmitter } = require("node:events");
+const WebSocket = require("ws");
+const { normalizeChannelId } = require("../shared/chat-config");
 
-/**
- * CHZZK 채팅 클라이언트
- * 실시간 채팅 메시지를 수신하여 콘솔에 출력합니다.
- * 
- * @author ChzzkStreamDeck
- * @version 2.0.0
- */
-
-let fetch;
-
-/**
- * node-fetch ES Module을 동적으로 로드
- */
-async function loadFetch() {
-    if (!fetch) {
-        fetch = (await import('node-fetch')).default;
-    }
-    return fetch;
+function parseObject(value) {
+  try {
+    const result = typeof value === "string" ? JSON.parse(value) : value;
+    return result && typeof result === "object" ? result : {};
+  } catch {
+    return {};
+  }
+}
+function parseChatMessages(packet) {
+  if (![93101, 93102].includes(packet.cmd) || !Array.isArray(packet.bdy))
+    return [];
+  return packet.bdy.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const message = item.msg ?? item.content;
+    if (typeof message !== "string" || !message.trim()) return [];
+    const profile = parseObject(item.profile);
+    const extras = parseObject(item.extras);
+    return [
+      {
+        username: String(profile.nickname || "익명").slice(0, 100),
+        message: message.slice(0, 10000),
+        extras: { emojis: parseObject(extras.emojis) },
+        type: "chat",
+      },
+    ];
+  });
 }
 
-const WebSocket = require('ws');
-
-/**
- * CHZZK 채팅 클라이언트 클래스
- */
-class ChzzkChatClient {
-    constructor(channelId, options = {}) {
-        this.channelId = channelId;
-        this.chatChannelId = null;
-        this.accessToken = null;
-        this.websocket = null;
-        this.isConnected = false;
-        this.heartbeatInterval = null;
-        
-        // 상수 정의
-        this.CONSTANTS = {
-            CHZZK_API_BASE: 'https://api.chzzk.naver.com',
-            CHAT_API_BASE: 'https://comm-api.game.naver.com',
-            WS_SERVER_BASE: 'wss://kr-ss',
-            WS_SERVER_MAX: 10,
-            WS_SERVER_RETRY_DELAY: 100,
-            CHAT_JSON_PREFIX: 'CHAT_JSON:',
-            DEFAULT_DEV_TYPE: 2001,
-            DEFAULT_AUTH: 'READ',
-            WS_CMD: {
-                HEARTBEAT: 0,
-                AUTH: 100,
-                HEARTBEAT_RESPONSE: 10000,
-                AUTH_SUCCESS: 10100,
-                CHAT_MESSAGE: 93101
-            }
-        };
-        
-        // 옵션 설정
-        this.options = {
-            reconnectAttempts: 3,
-            heartbeatInterval: 20000,
-            connectionTimeout: 5000,
-            verbose: false,
-            ...options
-        };
-        
-        // HTTP 요청 헤더
-        this.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-            'Referer': 'https://chzzk.naver.com/',
-            'Origin': 'https://chzzk.naver.com'
-        };
+class ChzzkChatClient extends EventEmitter {
+  constructor(channelId, options = {}) {
+    super();
+    this.channelId = normalizeChannelId(channelId);
+    if (!this.channelId) throw new Error("채널 ID가 필요합니다.");
+    this.options = {
+      connectionTimeout: 5000,
+      requestTimeout: 15000,
+      reconnectDelay: 1500,
+      reconnectAttempts: 8,
+      serverCount: 10,
+      ...options,
+    };
+    this.fetch = options.fetch || globalThis.fetch;
+    this.WebSocket = options.WebSocket || WebSocket;
+    this.status = {
+      state: "idle",
+      active: false,
+      connected: false,
+      channelId: this.channelId,
+      channelName: "",
+      error: null,
+      retryCount: 0,
+    };
+    this.socket = null;
+    this.controller = null;
+    this.reconnectTimer = null;
+    this.heartbeat = null;
+  }
+  setStatus(state, details = {}) {
+    this.status = {
+      ...this.status,
+      ...details,
+      state,
+      active: ["connecting", "connected", "reconnecting"].includes(state),
+      connected: state === "connected",
+    };
+    this.emit("status", this.getStatus());
+  }
+  getStatus() {
+    return { ...this.status };
+  }
+  async request(url, signal, allowEmpty = false) {
+    const response = await this.fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "application/json",
+        Referer: "https://chzzk.naver.com/",
+        Origin: "https://chzzk.naver.com",
+      },
+      signal: AbortSignal.any([
+        signal,
+        AbortSignal.timeout(this.options.requestTimeout),
+      ]),
+    });
+    if (!response.ok)
+      throw new Error(`치지직 API 연결 실패 (HTTP ${response.status})`);
+    const data = await response.json();
+    if (data.code !== 200 || (!allowEmpty && !data.content))
+      throw new Error(data.message || "채널 정보를 가져오지 못했습니다.");
+    return data.content;
+  }
+  async start() {
+    if (this.status.active) return;
+    this.controller = new AbortController();
+    this.setStatus("connecting", { error: null, retryCount: 0 });
+    try {
+      await this.connect(this.controller.signal);
+    } catch (error) {
+      if (!this.controller.signal.aborted)
+        this.setStatus("error", { error: error.message });
+      throw error;
     }
-
-    /**
-     * 클라이언트 시작
-     */
-    async start() {
-        try {
-            this.log('CHZZK 채팅 클라이언트 시작');
-            this.log(`채널 ID: ${this.channelId}`);
-            
-            // API 호출 단계별 실행
-            await this.initializeConnection();
-            await this.connectWebSocket();
-            
-            this.log('채팅 클라이언트 초기화 완료');
-            
-        } catch (error) {
-            this.error(`클라이언트 시작 실패: ${error.message}`);
-            throw error;
-        }
+  }
+  async connect(signal) {
+    const channel = await this.request(
+      `https://api.chzzk.naver.com/service/v1/channels/${this.channelId}`,
+      signal,
+    );
+    this.status.channelName = channel.channelName || "";
+    const live = await this.request(
+      `https://api.chzzk.naver.com/polling/v2/channels/${this.channelId}/live-status`,
+      signal,
+      true,
+    );
+    if (!live?.chatChannelId)
+      throw new Error(
+        "현재 열린 채팅방이 없습니다. 방송을 시작한 뒤 다시 연결해주세요.",
+      );
+    const credentials = await this.request(
+      `https://comm-api.game.naver.com/nng_main/v1/chats/access-token?channelId=${encodeURIComponent(live.chatChannelId)}&chatType=STREAMING`,
+      signal,
+    );
+    if (!credentials.accessToken)
+      throw new Error("채팅 접근 토큰을 가져오지 못했습니다.");
+    let lastError;
+    for (let server = 1; server <= this.options.serverCount; server++) {
+      signal.throwIfAborted();
+      try {
+        await this.openSocket(
+          `wss://kr-ss${server}.chat.naver.com/chat`,
+          live.chatChannelId,
+          credentials.accessToken,
+          signal,
+        );
+        return;
+      } catch (error) {
+        lastError = error;
+      }
     }
-
-    /**
-     * 연결 초기화 (API 호출)
-     */
-    async initializeConnection() {
-        // 1. 채널 정보 가져오기
-        const channelInfo = await this.getChannelInfo();
-        if (!channelInfo) {
-            throw new Error('채널 정보를 가져올 수 없습니다.');
+    throw new Error(
+      `채팅 서버에 연결하지 못했습니다: ${lastError?.message || "연결 실패"}`,
+    );
+  }
+  openSocket(url, chatChannelId, token, signal) {
+    return new Promise((resolve, reject) => {
+      signal.throwIfAborted();
+      const socket = new this.WebSocket(url);
+      this.socket = socket;
+      let authenticated = false;
+      let settled = false;
+      const dispose = () => {
+        clearTimeout(timeout);
+        signal.removeEventListener("abort", abort);
+        if (this.socket === socket) {
+          this.socket = null;
+          clearInterval(this.heartbeat);
+          this.heartbeat = null;
         }
-        
-        // 2. 라이브 상태 확인
-        const liveStatus = await this.getLiveStatus();
-        if (!liveStatus) {
-            throw new Error('라이브 상태를 확인할 수 없습니다.');
+      };
+      const fail = (error) => {
+        if (settled) return;
+        settled = true;
+        dispose();
+        socket.terminate();
+        reject(error);
+      };
+      const abort = () => {
+        if (!authenticated) fail(new Error("연결이 취소되었습니다."));
+        else {
+          dispose();
+          socket.terminate();
         }
-        
-        // 3. 액세스 토큰 가져오기
-        const accessToken = await this.getAccessToken();
-        if (!accessToken) {
-            throw new Error('액세스 토큰을 가져올 수 없습니다.');
-        }
-    }
-
-    /**
-     * 채널 기본 정보 조회
-     */
-    async getChannelInfo() {
-        try {
-            const fetchFunction = await loadFetch();
-            const url = `${this.CONSTANTS.CHZZK_API_BASE}/service/v1/channels/${this.channelId}`;
-            const response = await fetchFunction(url, { headers: this.headers });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.code === 200 && data.content) {
-                    this.log(`채널 정보: ${data.content.channelName || 'N/A'}`);
-                    return data.content;
-                }
-            }
-            
-            this.warn('채널 정보 요청 실패');
-            return null;
-            
-        } catch (error) {
-            this.warn(`채널 정보 오류: ${error.message}`);
-            return null;
-        }
-    }
-
-    /**
-     * 라이브 상태 조회
-     */
-    async getLiveStatus() {
-        try {
-            const fetchFunction = await loadFetch();
-            const url = `${this.CONSTANTS.CHZZK_API_BASE}/polling/v2/channels/${this.channelId}/live-status`;
-            const response = await fetchFunction(url, { headers: this.headers });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.code === 200 && data.content) {
-                    const content = data.content;
-                    this.chatChannelId = content.chatChannelId;
-                    this.log(`라이브 상태: ${content.status || content.liveStatus}`);
-                    return content;
-                }
-            }
-            
-            this.warn('라이브 상태 확인 실패');
-            return null;
-            
-        } catch (error) {
-            this.warn(`라이브 상태 오류: ${error.message}`);
-            return null;
-        }
-    }
-
-    /**
-     * 채팅 액세스 토큰 조회
-     */
-    async getAccessToken() {
-        if (!this.chatChannelId) {
-            this.error('채팅 채널 ID가 없습니다.');
-            return null;
-        }
-
-        try {
-            const fetchFunction = await loadFetch();
-            const url = `${this.CONSTANTS.CHAT_API_BASE}/nng_main/v1/chats/access-token?channelId=${this.chatChannelId}&chatType=STREAMING`;
-            const response = await fetchFunction(url, { headers: this.headers });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.code === 200 && data.content) {
-                    this.accessToken = data.content.accessToken;
-                    this.log('액세스 토큰 획득 완료');
-                    return data.content;
-                }
-            }
-            
-            this.warn('액세스 토큰 요청 실패');
-            return null;
-            
-        } catch (error) {
-            this.warn(`액세스 토큰 오류: ${error.message}`);
-            return null;
-        }
-    }
-
-    /**
-     * WebSocket 연결
-     */
-    async connectWebSocket() {
-        this.log('WebSocket 연결 시도...');
-        
-        if (!this.accessToken || !this.chatChannelId) {
-            throw new Error('연결에 필요한 정보가 부족합니다.');
-        }
-
-        // kr-ss1 ~ kr-ss10 서버 순차 시도
-        const maxServers = this.CONSTANTS.WS_SERVER_MAX;
-        for (let serverNum = 1; serverNum <= maxServers; serverNum++) {
-            const wsUrl = `${this.CONSTANTS.WS_SERVER_BASE}${serverNum}.chat.naver.com/chat?channelId=${this.chatChannelId}&accessToken=${this.accessToken}`;
-            
-            try {
-                this.verbose(`WebSocket 서버 시도 ${serverNum}/${maxServers}: kr-ss${serverNum}`);
-                
-                if (await this.tryConnectToServer(wsUrl, serverNum)) {
-                    return; // 연결 성공 시 종료
-                }
-                
-            } catch (error) {
-                this.verbose(`kr-ss${serverNum} 연결 실패: ${error.message}`);
-                
-                // 다음 서버 시도 전 정리
-                this.cleanupWebSocket();
-                
-                if (serverNum < maxServers) {
-                    await this.sleep(this.CONSTANTS.WS_SERVER_RETRY_DELAY);
-                }
-            }
-        }
-        
-        throw new Error('모든 WebSocket 서버 연결 실패');
-    }
-
-    /**
-     * 특정 서버로 WebSocket 연결 시도
-     */
-    async tryConnectToServer(wsUrl, serverNum) {
-        return new Promise((resolve, reject) => {
-            this.websocket = new WebSocket(wsUrl);
-            
-            const timeout = setTimeout(() => {
-                reject(new Error('연결 타임아웃'));
-            }, this.options.connectionTimeout);
-            
-            this.websocket.on('open', () => {
-                clearTimeout(timeout);
-                this.log(`WebSocket 연결 성공: kr-ss${serverNum}`);
-                this.isConnected = true;
-                
-                this.setupWebSocketHandlers();
-                this.authenticateChat();
-                this.startHeartbeat();
-                
-                resolve(true);
-            });
-            
-            this.websocket.on('error', (error) => {
-                clearTimeout(timeout);
-                reject(error);
-            });
-        });
-    }
-
-    /**
-     * WebSocket 이벤트 핸들러 설정
-     */
-    setupWebSocketHandlers() {
-        this.websocket.on('message', (data) => {
-            try {
-                const message = JSON.parse(data.toString());
-                this.handleMessage(message);
-            } catch (error) {
-                this.warn(`메시지 파싱 실패: ${error.message}`);
-            }
-        });
-        
-        this.websocket.on('error', (error) => {
-            this.error(`WebSocket 오류: ${error.message}`);
-        });
-        
-        this.websocket.on('close', (code, reason) => {
-            if (this.isConnected) {
-                this.log(`WebSocket 연결 종료: ${code} - ${reason}`);
-                this.isConnected = false;
-                this.stopHeartbeat();
-            }
-        });
-    }
-
-    /**
-     * 채팅 인증
-     */
-    authenticateChat() {
-        const authMessage = {
+      };
+      const timeout = setTimeout(
+        () => fail(new Error("채팅 인증 응답 시간 초과")),
+        this.options.connectionTimeout,
+      );
+      signal.addEventListener("abort", abort, { once: true });
+      socket.on("open", () => {
+        if (signal.aborted) return abort();
+        socket.send(
+          JSON.stringify({
             ver: "2",
-            cmd: this.CONSTANTS.WS_CMD.AUTH,
+            cmd: 100,
             svcid: "game",
-            cid: this.chatChannelId,
-            bdy: {
-                uid: null,
-                devType: this.CONSTANTS.DEFAULT_DEV_TYPE,
-                accTkn: this.accessToken,
-                auth: this.CONSTANTS.DEFAULT_AUTH
-            },
-            tid: 1
-        };
-        
-        this.websocket.send(JSON.stringify(authMessage));
-        this.log('채팅 인증 요청 전송');
-    }
-
-    /**
-     * 하트비트 시작
-     */
-    startHeartbeat() {
-        this.heartbeatInterval = setInterval(() => {
-            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                const heartbeatMessage = { 
-                    ver: "2", 
-                    cmd: this.CONSTANTS.WS_CMD.HEARTBEAT 
-                };
-                this.websocket.send(JSON.stringify(heartbeatMessage));
-                this.verbose('하트비트 전송');
-            }
-        }, this.options.heartbeatInterval);
-    }
-
-    /**
-     * 하트비트 중지
-     */
-    stopHeartbeat() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-        }
-    }
-
-    /**
-     * WebSocket 정리
-     */
-    cleanupWebSocket() {
-        if (this.websocket) {
-            this.websocket.removeAllListeners();
-            if (this.websocket.readyState === WebSocket.OPEN || 
-                this.websocket.readyState === WebSocket.CONNECTING) {
-                this.websocket.close();
-            }
-            this.websocket = null;
-        }
-    }
-
-    /**
-     * 메시지 처리
-     */
-    handleMessage(message) {
-        const { WS_CMD } = this.CONSTANTS;
-        
-        switch (message.cmd) {
-            case WS_CMD.HEARTBEAT:
-                // 서버 하트비트 요청 - 응답 필요
-                const response = { ver: "2", cmd: WS_CMD.HEARTBEAT_RESPONSE };
-                this.websocket.send(JSON.stringify(response));
-                break;
-                
-            case WS_CMD.AUTH_SUCCESS:
-                // 인증 완료
-                this.log('채팅 연결 완료');
-                break;
-                
-            case WS_CMD.CHAT_MESSAGE:
-                // 채팅 메시지
-                this.handleChatMessage(message);
-                break;
-                
-            default:
-                // 알 수 없는 명령 코드 (무시)
-                break;
-        }
-    }
-
-    /**
-     * 채팅 메시지 처리
-     */
-    handleChatMessage(message) {
-        if (!message.bdy || !Array.isArray(message.bdy) || message.bdy.length === 0) {
-            return;
-        }
-
-        for (const chatData of message.bdy) {
-            try {
-                const nickname = this.extractNickname(chatData);
-                const content = chatData.msg || chatData.content || '';
-                
-                if (content.trim()) {
-                    // 이모티콘 정보 추출
-                    const emoticons = this.extractEmoticons(chatData);
-                    
-                    if (emoticons && Object.keys(emoticons).length > 0) {
-                        // 이모티콘이 있는 경우 JSON 형태로 출력
-                        const messageData = {
-                            username: nickname,
-                            message: content,
-                            extras: { emojis: emoticons }
-                        };
-                        console.log(`${this.CONSTANTS.CHAT_JSON_PREFIX}${JSON.stringify(messageData)}`);
-                    } else {
-                        // 기존 형태로 출력
-                        console.log(`[${nickname}]: ${content}`);
-                    }
-                }
-                
-            } catch (error) {
-
-            }
-        }
-    }
-
-    /**
-     * 이모티콘 정보 추출
-     */
-    extractEmoticons(chatData) {
+            cid: chatChannelId,
+            bdy: { uid: null, devType: 2001, accTkn: token, auth: "READ" },
+            tid: 1,
+          }),
+        );
+      });
+      socket.on("message", (raw) => {
+        if (signal.aborted) return;
+        let packet;
         try {
-            if (chatData.extras) {
-                let extras = {};
-                
-                if (typeof chatData.extras === 'string') {
-                    extras = JSON.parse(chatData.extras);
-                } else if (typeof chatData.extras === 'object') {
-                    extras = chatData.extras;
-                }
-                
-                if (extras.emojis && typeof extras.emojis === 'object') {
-                    return extras.emojis;
-                }
-            }
-            
-            return null;
-            
-        } catch (error) {
-
-            return null;
+          packet = JSON.parse(raw.toString());
+        } catch {
+          return;
         }
+        if (!packet || typeof packet !== "object") return;
+        if (packet.cmd === 0 && socket.readyState === WebSocket.OPEN)
+          socket.send(JSON.stringify({ ver: "2", cmd: 10000 }));
+        if (packet.cmd === 10100 && !settled) {
+          if (packet.retCode && packet.retCode !== 0)
+            return fail(new Error("채팅 인증이 거부되었습니다."));
+          clearTimeout(timeout);
+          authenticated = settled = true;
+          this.setStatus("connected", { error: null, retryCount: 0 });
+          this.heartbeat = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN)
+              socket.send(JSON.stringify({ ver: "2", cmd: 0 }));
+          }, 20000);
+          resolve();
+        }
+        if (authenticated)
+          for (const message of parseChatMessages(packet))
+            this.emit("message", message);
+      });
+      socket.on("error", (error) => {
+        if (!authenticated) fail(error);
+        else socket.terminate();
+      });
+      socket.on("close", () => {
+        dispose();
+        if (!authenticated)
+          fail(new Error("인증 전에 채팅 연결이 종료되었습니다."));
+        else if (!signal.aborted) this.scheduleReconnect(signal);
+      });
+    });
+  }
+  scheduleReconnect(signal) {
+    if (signal.aborted || this.reconnectTimer) return;
+    const attempt = this.status.retryCount + 1;
+    if (attempt > this.options.reconnectAttempts) {
+      this.setStatus("error", {
+        error:
+          "자동 재연결에 실패했습니다. 네트워크를 확인하고 다시 연결해주세요.",
+      });
+      return;
     }
-
-    /**
-     * 닉네임 추출
-     */
-    extractNickname(chatData) {
+    this.setStatus("reconnecting", { retryCount: attempt });
+    this.reconnectTimer = setTimeout(
+      async () => {
+        this.reconnectTimer = null;
+        if (signal.aborted) return;
         try {
-            let profile = {};
-            
-            if (typeof chatData.profile === 'string') {
-                profile = JSON.parse(chatData.profile);
-            } else if (typeof chatData.profile === 'object') {
-                profile = chatData.profile || {};
-            }
-            
-            return profile.nickname || '익명';
-            
+          await this.connect(signal);
         } catch (error) {
-            return '익명';
+          if (!signal.aborted) {
+            this.status.error = error.message;
+            this.scheduleReconnect(signal);
+          }
         }
-    }
-
-    /**
-     * 연결 종료
-     */
-    disconnect() {
-        this.stopHeartbeat();
-        this.cleanupWebSocket();
-        this.isConnected = false;
-    }
-
-    /**
-     * 상태 조회
-     */
-    getStatus() {
-        return {
-            connected: this.isConnected,
-            channelId: this.channelId,
-            chatChannelId: this.chatChannelId,
-            hasAccessToken: !!this.accessToken
-        };
-    }
-
-    // 로깅 메서드들
-    log(message) { console.log(message); }
-    error(message) { console.error(message); }
-    warn(message) { console.log(message); }
-    verbose(message) { if (this.options.verbose) console.log(message); }
-    
-    // 유틸리티 메서드
-    sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+      },
+      Math.min(this.options.reconnectDelay * 2 ** (attempt - 1), 30000),
+    );
+  }
+  disconnect() {
+    this.controller?.abort();
+    clearTimeout(this.reconnectTimer);
+    clearInterval(this.heartbeat);
+    this.reconnectTimer = this.heartbeat = null;
+    this.socket?.terminate();
+    this.socket = null;
+    this.setStatus("idle", { error: null, retryCount: 0 });
+  }
 }
 
-// 명령행에서 직접 실행하는 경우
 if (require.main === module) {
-    const channelId = process.argv[2];
-    const verbose = process.argv.includes('--verbose');
-    
-    if (!channelId) {
-        console.error('채널 ID가 필요합니다.');
-        console.error('사용법: node src/chat-client.js <channelId> [--verbose]');
-        process.exit(1);
-    }
-    
-    const client = new ChzzkChatClient(channelId, { verbose });
-    
-    // 프로세스 종료 시 정리
-    process.on('SIGINT', () => {
+  try {
+    const client = new ChzzkChatClient(process.argv[2]);
+    client.on("message", (message) => console.log(JSON.stringify(message)));
+    client.on("status", (status) =>
+      console.error(`${status.state}: ${status.error || status.channelName}`),
+    );
+    for (const signal of ["SIGINT", "SIGTERM"])
+      process.once(signal, () => {
         client.disconnect();
         process.exit(0);
+      });
+    client.start().catch(() => {
+      process.exitCode = 1;
     });
-    
-    process.on('SIGTERM', () => {
-        client.disconnect();
-        process.exit(0);
-    });
-    
-    // 클라이언트 시작
-    client.start().catch(error => {
-        console.error(`시작 실패: ${error.message}`);
-        process.exit(1);
-    });
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }
-
-module.exports = ChzzkChatClient; 
+module.exports = ChzzkChatClient;
+module.exports.parseChatMessages = parseChatMessages;
