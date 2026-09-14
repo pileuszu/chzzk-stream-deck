@@ -1,6 +1,6 @@
 {
   "name": "chzzk-stream-deck",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "CHZZK Stream Deck - 치지직 스트리밍을 위한 실시간 채팅 위젯 관리 시스템",
   "main": "main.js",
   "scripts": {

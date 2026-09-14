@@ -1,6 +1,6 @@
-# v3.0.0 빌드와 GitHub Release
+# v3.0.1 빌드와 GitHub Release
 
-통합 스트림덱의 버전은 `3.0.0`, 대응 태그는 `v3.0.0`입니다. 앱 버전은 `package.json`과 `package-lock.json`에서 함께 관리합니다.
+통합 스트림덱의 버전은 `3.0.1`, 대응 태그는 `v3.0.1`입니다. 앱 버전은 `package.json`과 `package-lock.json`에서 함께 관리합니다.
 
 ## 로컬 빌드
 
@@ -15,23 +15,23 @@ npm run build:release
 
 | 생성 파일 | 용도 |
 |---|---|
-| `dist/release/CHZZK-Stream-Deck-3.0.0-win-x64-portable.exe` | 사용자가 다운로드할 포터블 실행 파일 |
+| `dist/release/CHZZK-Stream-Deck-3.0.1-win-x64-portable.exe` | 사용자가 다운로드할 포터블 실행 파일 |
 | `dist/release/SHA256SUMS.txt` | 실행 파일의 SHA-256 |
 | `dist/release/RELEASE-NOTES.md` | Release 본문 |
 | `dist/release/win-unpacked/` | 빌드 중 생성하는 전체 앱 폴더 |
 
-별도의 NDI 실행 파일이나 OBS DLL을 사용자에게 따로 전달할 필요는 없습니다. 앱에 두 모듈과 대응 소스·라이선스가 포함됩니다. Voicemeeter와 NDI 런타임, OBS, 최초 자동 장면 등록에 필요한 Python은 별도 설치 항목입니다. 앱 다운로드 안내에도 이 조건을 표시합니다.
+별도의 NDI 실행 파일이나 OBS DLL을 사용자에게 따로 전달할 필요는 없습니다. 앱에 두 모듈과 대응 소스·라이선스가 포함됩니다. 캡처에는 Voicemeeter, NDI 송신에는 NDI 런타임, 로컬 캡처에는 OBS가 별도로 필요합니다. 앱의 OBS 자동 연결에는 Python이 필요하지 않습니다. Python은 소스 빌드·테스트와 수동 등록 도구를 사용할 때 필요합니다.
 
 개인 `sender.ini`·`local-capture.ini`, 로그·녹화·백업은 포함하지 않습니다. 배포 기본값은 `sender.example.ini`에서 가져옵니다. 패키징 검사에서 모듈 누락이나 개인 설정 포함을 발견하면 실패합니다.
 
 ## GitHub에 게시
 
-1. v3.0.0에 포함할 코드·빌드 설정을 검토하고 커밋·푸시합니다. 빌드 파일은 추가하지 않습니다.
+1. v3.0.1에 포함할 코드·빌드 설정을 검토하고 커밋·푸시합니다. 빌드 파일은 추가하지 않습니다.
 2. 배포할 커밋에서 태그를 생성하고 푸시합니다.
 
 ```powershell
-git tag -a v3.0.0 -m "CHZZK Stream Deck v3.0.0"
-git push origin v3.0.0
+git tag -a v3.0.1 -m "CHZZK Stream Deck v3.0.1"
+git push origin v3.0.1
 ```
 
 3. Actions의 **Publish Release**를 확인합니다. Windows 러너가 태그의 코드를 체크아웃하고 같은 `npm run build:release`를 실행합니다. 태그 이름이 앱 버전과 다르면 빌드 전에 중단합니다.

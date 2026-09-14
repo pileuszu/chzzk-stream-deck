@@ -1,4 +1,4 @@
-# CHZZK Stream Deck v3.0.0
+# CHZZK Stream Deck v3.0.1
 
 **로컬 캡처 · NDI 송신 · CHZZK 채팅을 한 앱에서 관리하는 스트림덱**
 
@@ -140,7 +140,7 @@ The default port is 7112.
 
 ## Build and Deployment
 
-### v3.0.0 배포 파일 만들기
+### v3.0.1 배포 파일 만들기
 
 Windows x64에서 Node.js 24, Python 3, VS 2022 C++ Build Tools, Windows SDK, CMake 3.24+를 준비합니다.
 
@@ -151,13 +151,15 @@ npm run build:release
 
 이 명령 하나로 버전 확인, 자동 테스트, NDI·OBS 로컬 모듈 빌드, 포터블 앱 패키징, SHA-256 생성을 차례로 실행합니다. 실행 중인 개발 앱과 충돌하지 않도록 배포 결과는 `dist/release/`에 생성합니다.
 
-- `CHZZK-Stream-Deck-3.0.0-win-x64-portable.exe`: 사용자가 다운로드해 실행하는 단일 파일.
+- `CHZZK-Stream-Deck-3.0.1-win-x64-portable.exe`: 사용자가 다운로드해 실행하는 단일 파일.
 - `SHA256SUMS.txt`: 다운로드 무결성 확인용.
 - `RELEASE-NOTES.md`: GitHub Release 본문에 사용할 안내.
 
 `dist/` 전체는 Git에서 제외합니다. 소스와 빌드 설정만 커밋하고 실행 파일은 GitHub Release의 첨부 파일로 배포합니다. GitHub가 자동 제공하는 **Source code** ZIP은 실행 파일이 아닙니다.
 
-변경사항을 커밋·푸시한 뒤 `v3.0.0` 태그를 푸시하면 GitHub Actions가 같은 명령으로 새로 빌드해 Release를 만들고 EXE·체크섬을 첨부합니다. `main`·`develop` 푸시와 PR에서는 빌드 아티팩트만 생성합니다. 태그와 `package.json`·`package-lock.json` 버전이 다르면 게시하지 않습니다.
+변경사항을 커밋·푸시한 뒤 `v3.0.1` 태그를 푸시하면 GitHub Actions가 같은 명령으로 새로 빌드해 Release를 만들고 EXE·체크섬을 첨부합니다. `main`·`develop` 푸시와 PR에서는 빌드 아티팩트만 생성합니다. 태그와 `package.json`·`package-lock.json` 버전이 다르면 게시하지 않습니다.
+
+v3.0.1은 버전·배포 문서를 갱신한 릴리스입니다. 기능과 캡처 엔진은 v3.0.0과 동일하며 성능 최적화 변경은 포함하지 않습니다.
 
 정확한 순서와 재실행 방법은 [빌드·릴리스 안내](docs/RELEASES.md)를 참고하세요.
 
