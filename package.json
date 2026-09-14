@@ -1,6 +1,6 @@
 {
   "name": "chzzk-stream-deck",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "CHZZK Stream Deck - 치지직 스트리밍을 위한 실시간 채팅 위젯 관리 시스템",
   "main": "main.js",
   "scripts": {
@@ -8,14 +8,24 @@
     "app": "electron .",
     "dev": "nodemon server.js",
     "build": "electron-builder",
-    "prebuild:win": "node scripts/kill-electron.js && node scripts/clear-cache.js && rm -rf dist || true",
-    "build:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
-    "build:win:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
+    "build:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
+    "build:win:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable --x64 --publish never",
+    "build:release": "node scripts/release-artifacts.js --check-version && npm run test:ci && npm run test:registration && npm run build:native && npm run build:win:portable -- --config.directories.output=dist/release && node scripts/release-artifacts.js",
+    "test:ci": "node --test test/output-modules.test.js test/local-setup.test.js test/local-workflow.test.mjs test/deck-modules.test.mjs test/spring.test.mjs test/lifecycle.test.js test/release-artifacts.test.js",
     "dist": "electron-builder --publish=never",
     "chat-test": "node test/chzzk-chat-terminal.js",
     "api-test": "node test/chzzk-api-test.js",
     "channel-info": "node test/chzzk-channel-info.js",
-    "test": "echo \"치지직 스트림덱 테스트 가이드\" && echo \"\" && echo \"1단계: API 연결 테스트 (필수)\" && echo \"  npm run api-test [채널ID]\" && echo \"\" && echo \"2단계: 채팅 테스트 (API 성공 후)\" && echo \"  npm run chat-test [채널ID]\" && echo \"\" && echo \"3단계: 채널 정보 전체 조회\" && echo \"  npm run channel-info [채널ID]\" && echo \"\" && echo \"예시:\" && echo \"  npm run api-test 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run channel-info 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run chat-test 789d1d9c5b58c847f9f18c8e5073c580\" && exit 0"
+    "test": "echo \"치지직 스트림덱 테스트 가이드\" && echo \"\" && echo \"1단계: API 연결 테스트 (필수)\" && echo \"  npm run api-test [채널ID]\" && echo \"\" && echo \"2단계: 채팅 테스트 (API 성공 후)\" && echo \"  npm run chat-test [채널ID]\" && echo \"\" && echo \"3단계: 채널 정보 전체 조회\" && echo \"  npm run channel-info [채널ID]\" && echo \"\" && echo \"예시:\" && echo \"  npm run api-test 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run channel-info 789d1d9c5b58c847f9f18c8e5073c580\" && echo \"  npm run chat-test 789d1d9c5b58c847f9f18c8e5073c580\" && exit 0",
+    "test:outputs": "node --test test/output-modules.test.js",
+    "build:ndi": "powershell -NoProfile -ExecutionPolicy Bypass -File native/a1-output/build.ps1",
+    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File native/a1-output/Build-OBSPlugin.ps1 -AllowMissingOBS",
+    "test:deck": "node --test test/deck-modules.test.mjs",
+    "build:icons": "electron scripts/build-icons.cjs",
+    "test:lifecycle": "node --test test/lifecycle.test.js",
+    "test:setup": "node --test test/local-setup.test.js test/local-workflow.test.mjs",
+    "test:motion": "node --test test/spring.test.mjs",
+    "test:registration": "python test/obs-registration-test.py"
   },
   "keywords": [
     "obs",
@@ -44,6 +54,7 @@
   "build": {
     "appId": "com.chzzk.streamdeck",
     "productName": "CHZZK Stream Deck",
+    "artifactName": "CHZZK-Stream-Deck-${version}-win-${arch}-portable.${ext}",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -54,7 +65,11 @@
       "!test/**/*",
       "!*.md",
       "!*.git*",
-      "!build/**/*"
+      "!build/**/*",
+      "!native/**/*",
+      "!native-runtime/**/*",
+      "!test-results/**/*",
+      "!.local-backups/**/*"
     ],
     "asar": false,
     "extraFiles": [
@@ -67,14 +82,18 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "sign": null,
       "verifyUpdateCodeSignature": false,
       "signingHashAlgorithms": [],
       "signDlls": false,
-      "publisherName": []
+      "publisherName": [],
+      "signAndEditExecutable": false,
+      "icon": "assets/icons/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -82,6 +101,14 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "CHZZK Stream Deck"
-    }
+    },
+    "beforePack": "./scripts/stage-native.js",
+    "extraResources": [
+      {
+        "from": "native-runtime",
+        "to": "a1-output"
+      }
+    ],
+    "afterPack": "./scripts/after-pack.js"
   }
 }

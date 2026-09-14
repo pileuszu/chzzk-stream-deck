@@ -1,5 +1,12 @@
 node_modules/
+native-runtime/
+test-results/
+.local-backups/
+# Generated installers, portable executables, unpacked app and release checksums.
 dist/
+# Also ignore release files accidentally copied to the repository root.
+/CHZZK-Stream-Deck-*-portable.exe
+/SHA256SUMS.txt
 build/
 *.log
 .DS_Store

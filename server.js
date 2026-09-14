@@ -7,7 +7,8 @@
  */
 
 const express = require('express');
-const { spawn } = require('child_process');
+const { fork } = require('child_process');
+const { stopChild } = require('./src/stop-child');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
@@ -112,7 +113,7 @@ class ChzzkStreamDeckServer {
         
         this.setupMiddleware();
         this.setupRoutes();
-        this.setupProcessHandlers();
+        if (!process.versions.electron) this.setupProcessHandlers();
         this.setupConfigEndpoint();
     }
     
@@ -137,6 +138,8 @@ class ChzzkStreamDeckServer {
      * 미들웨어 설정
      */
     setupMiddleware() {
+        // Native source, recordings and backups are local-only, even in web mode.
+        this.app.use(require('./src/output-static'));
         this.app.use(cors());
         this.app.use(express.json());
         
@@ -293,7 +296,7 @@ class ChzzkStreamDeckServer {
                 });
                 
             } else if (action === 'stop') {
-                this.stopChatModule();
+                await this.stopChatModule();
                 res.json({ 
                     success: true, 
                     message: '채팅 모듈이 중지되었습니다.' 
@@ -319,6 +322,7 @@ class ChzzkStreamDeckServer {
      * 채팅 모듈 시작
      */
     async startChatModule(channelId) {
+        if (this.stopping || this.chatStopPromise) throw new Error("모듈을 종료하는 중입니다.");
         if (this.processes.chat) {
             throw new Error('채팅 모듈이 이미 실행 중입니다.');
         }
@@ -354,9 +358,10 @@ class ChzzkStreamDeckServer {
         console.log(`작업 디렉토리: ${cwd}`);
         
         // 채팅 클라이언트 실행
-        const chatProcess = spawn('node', [chatClientPath, channelId], {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: cwd
+        const chatProcess = fork(chatClientPath, [channelId], {
+            stdio: ['pipe', 'pipe', 'pipe', 'ipc'], cwd, windowsHide: true,
+            execPath: process.execPath,
+            env: { ...process.env, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) }
         });
         
         this.processes.chat = chatProcess;
@@ -375,13 +380,20 @@ class ChzzkStreamDeckServer {
             console.error(`채팅 오류: ${data.toString().trim()}`);
         });
         
+        chatProcess.on('error', error => {
+            console.error('채팅 프로세스 시작 실패:', error.message);
+            if (this.processes.chat === chatProcess) this.processes.chat = null;
+            this.status.chat.active = false; this.status.chat.pid = null;
+        });
         chatProcess.on('close', (code) => {
             if (code !== 0) {
                 console.log(`채팅 모듈 종료 - 코드: ${code}`);
             }
-            this.processes.chat = null;
-            this.status.chat.active = false;
-            this.status.chat.pid = null;
+            if (this.processes.chat === chatProcess) {
+                this.processes.chat = null;
+                this.status.chat.active = false;
+                this.status.chat.pid = null;
+            }
         });
         
         // 프로세스 시작 확인
@@ -395,17 +407,17 @@ class ChzzkStreamDeckServer {
     /**
      * 채팅 모듈 중지
      */
+
     stopChatModule() {
-        if (!this.processes.chat) {
-            throw new Error('실행 중인 채팅 모듈이 없습니다.');
-        }
-        
-        console.log('채팅 모듈 중지');
-        
-        this.processes.chat.kill('SIGTERM');
-        this.processes.chat = null;
-        this.status.chat.active = false;
-        this.status.chat.pid = null;
+        if (this.chatStopPromise) return this.chatStopPromise;
+        const child = this.processes.chat;
+        if (!child) return Promise.resolve();
+        this.chatStopPromise = stopChild(child).then(() => {
+            if (this.processes.chat === child) this.processes.chat = null;
+            this.status.chat.active = false;
+            this.status.chat.pid = null;
+        }).finally(() => { this.chatStopPromise = null; });
+        return this.chatStopPromise;
     }
 
     /**
@@ -532,11 +544,11 @@ class ChzzkStreamDeckServer {
     setupProcessHandlers() {
         // 서버 종료 시 정리
         process.on('SIGINT', () => {
-            this.shutdown();
+            void this.shutdown().catch(error => console.error(error));
         });
 
         process.on('SIGTERM', () => {
-            this.shutdown();
+            void this.shutdown().catch(error => console.error(error));
         });
     }
 
@@ -568,29 +580,26 @@ class ChzzkStreamDeckServer {
     /**
      * 서버 종료
      */
+
     shutdown() {
-        console.log('서버 종료 중...');
-        
-        // 서버 인스턴스 종료
-        if (this.serverInstance) {
-            this.serverInstance.close(() => {
-                console.log('서버 인스턴스 종료 완료');
-            });
-        }
-        
-        // 모든 프로세스 정리
-        if (this.processes.chat) {
-            this.processes.chat.kill('SIGTERM');
-        }
-        
-        // SSE 연결 정리
-        this.sseConnections.forEach(connection => {
-            try {
-                connection.end();
-            } catch (error) {
-                // 무시
+        if (this.shutdownPromise) return this.shutdownPromise;
+        this.stopping = true;
+        this.shutdownPromise = (async () => {
+            await this.stopChatModule();
+            this.sseConnections.forEach(connection => { try { connection.end(); } catch {} });
+            this.sseConnections.clear();
+            if (this.serverInstance?.listening) {
+                await new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => this.serverInstance.closeAllConnections?.(), 500);
+                    this.serverInstance.close(error => {
+                        clearTimeout(timer);
+                        error ? reject(error) : resolve();
+                    });
+                    this.serverInstance.closeIdleConnections?.();
+                });
             }
-        });
+        })().catch(error => { this.shutdownPromise = null; throw error; });
+        return this.shutdownPromise;
     }
 
     // 유틸리티 메서드
@@ -606,4 +615,4 @@ if (require.main === module) {
 }
 
 // Electron에서 사용할 수 있도록 export
-module.exports = ChzzkStreamDeckServer; 
+module.exports = ChzzkStreamDeckServer;

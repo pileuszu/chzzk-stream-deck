@@ -513,6 +513,11 @@ if (require.main === module) {
     
     const client = new ChzzkChatClient(channelId, { verbose });
     
+    // IPC shutdown is graceful on Windows; parent disconnection prevents orphan workers.
+    const shutdown = () => { client.disconnect(); process.exit(0); };
+    process.on('message', message => { if (message?.type === 'shutdown') shutdown(); });
+    if (process.connected) process.on('disconnect', shutdown);
+
     // 프로세스 종료 시 정리
     process.on('SIGINT', () => {
         client.disconnect();

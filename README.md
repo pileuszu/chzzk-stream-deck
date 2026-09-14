@@ -1,8 +1,98 @@
-# CHZZK Stream Deck v2.0
+# CHZZK Stream Deck v3.0.0
 
-**Real-time Chat Widget Management System for CHZZK Streaming**
+**로컬 캡처 · NDI 송신 · CHZZK 채팅을 한 앱에서 관리하는 스트림덱**
 
-A real-time chat widget management system for CHZZK streaming, featuring an Electron-based desktop application that works seamlessly with OBS Studio.
+이 저장소 하나에 Electron 앱, 세 모듈과 공통 캡처 엔진이 들어 있습니다. 별도의 `a1-ndi-sender` 저장소는 필요하지 않습니다.
+
+```text
+chzzk-stream-deck/
+├── main.js, src/             # 앱·모듈 제어
+├── js/deck/, css/            # 덱과 각 모듈 패널
+├── native/a1-output/
+│   ├── src/                  # 화면·A1 캡처, 싱크 버퍼, NDI 출력
+│   ├── obs-plugin/           # 같은 엔진을 쓰는 OBS 로컬 소스
+│   └── tools/                # OBS 등록·기존 설정 이전
+├── scripts/, test/           # 전체 앱 빌드·검증
+└── docs/                     # 사용·개발 안내
+```
+
+저장소 루트에서 `npm ci` → `npm run build:native` → `npm run app`으로 실행합니다. 준비 후에는 루트의 `start.bat`로 앱을 열 수 있습니다. 앱을 열어도 방송은 자동 시작하지 않습니다.
+
+개인 캡처 설정(`sender.ini`, `local-capture.ini`), 로그·녹화, 빌드 결과와 `.local-backups/`는 Git과 앱 배포에서 제외합니다. 기본 설정은 `native/a1-output/sender.example.ini`로 공유합니다. 배포 앱의 사용자 설정은 `%APPDATA%/chzzk-stream-deck/a1-output`에 보존됩니다. 이는 별도 저장소가 아닌 앱 실행 데이터입니다.
+
+이전 독립 송신기 폴더를 사용했다면 [단일 저장소로 이전하기](docs/REPOSITORY.md)를 참고하세요.
+
+
+## 화면·A1 오디오 출력 모듈 (Windows)
+
+대시보드에 **NDI 송신**과 **로컬 캡처**를 추가했습니다.
+Voicemeeter A1 최종 믹스와 화면 캡처·공통 버퍼를 공유하고 출력 방식만 선택합니다.
+
+| 모듈 | 용도 | 대시보드 제어 |
+|---|---|---|
+| NDI 송신 | 다른 PC에 화면과 A1 소리를 한 NDI 소스로 전달 | 송출 시작 / 중지 |
+| 로컬 캡처 | 이 PC의 OBS에 화면과 A1 소리를 직접 공급 | 설정 저장·적용 / 캡처 시작·중지 |
+
+설치: `npm ci` → `npm run build:native` → `npm run app`.
+빌드 도구: Windows x64, VS 2022 C++ Build Tools, Windows SDK, CMake 3.24+.
+실행 시 Voicemeeter가 필요하고 NDI 모드에만 별도 NDI 6 런타임이 필요합니다.
+OBS 로컬 플러그인은 **OBS 32.0.1 x64**에 맞춰 빌드·검증합니다.
+처음 사용하는 OBS에는 플러그인 설치와 장면 등록이 필요합니다.
+
+자세한 설치·실행·기존 소스 이전·동기화 범위는 **[출력 모듈 안내](native/a1-output/OUTPUT-MODULES.md)**를 참고하세요.
+앱을 여는 것만으로 기존 OBS 설정을 바꾸지 않습니다. 사용자가 저장·시작·중지·적용을 누르면 해당 A1 캡처를 제어합니다. 두 캡처 모드는 동시에 실행하지 않습니다.
+NDI 송출 시작은 실제 화면과 A1 믹스를 LAN으로 전송하며, OBS 열기는 녹화·방송을 자동 시작하지 않습니다.
+
+기본값: 1920×1080 / 30 FPS / 공통 버퍼 500 ms / 추가 오디오 보정 0 ms.
+A1에 섞인 소리의 상대 타이밍을 보존하지만 물리적인 모니터·헤드폰 지연을 자동 교정하지는 않습니다.
+`npm start`의 웹 모드는 채팅용이며 네이티브 실행 제어는 Electron 앱에서만 가능합니다.
+
+검증: `npm run test:outputs`(제어·기존 설치 탐지·IPC·로그 보호), `npm run build:native`(C++ 빌드·타이밍 테스트).
+Windows 앱 패키징 전 두 모듈을 빌드하세요. 패키징은 바이너리와 해당 소스를 함께 포함하며 로그·녹화·SDK 다운로드는 제외합니다.
+NDI/Voicemeeter 런타임은 배포하지 않습니다. OBS 플러그인의 GPL 조건은 [제3자 안내](native/a1-output/third_party/README.md)를 참고하세요.
+
+## 스트림덱 UI
+
+**페이지마다 5열 × 3행**을 유지합니다. **11번은 이전 페이지, 15번은 다음 페이지**로 고정하고 나머지 13칸을 모듈용으로 사용합니다. 캡처 상태 전용 슬롯은 표시하지 않습니다. 별도 하단 상태바와 페이지 바는 없습니다. 현재는 **로컬 캡처 · NDI 송신 · CHZZK 채팅** 3개를 배치하고 모듈용 빈 칸 10개를 남깁니다.
+모듈을 좌클릭하면 같은 화면이 해당 모듈의 설정 화면으로 전환됩니다. 뒤로가기와 모듈명을 맨 위 창 제어 줄에 표시해 별도 제목 줄을 없앴습니다. 기본 창 640×440을 유지하며 설정 화면의 실행·저장 버튼은 하단에 고정합니다.
+
+- **버튼 편집**(연필)을 누르면 같은 덱에서 모듈을 드래그해 배치합니다. 빈칸에 놓으면 이동하고 다른 모듈 위에 놓으면 서로 교환하며 즉시 저장합니다. 드래그 카드는 탄력적으로 따라오며 속도에 따라 기울어지고, 교환·안착할 때 주변 카드도 반응합니다. 별도 편집 패널은 없습니다. 편집 중 클릭은 모듈을 실행하지 않습니다. 연필을 다시 누르거나 Esc로 편집을 끝냅니다.
+- 11·15번 **이전·다음 페이지** 슬롯 또는 **Page Up / Page Down**으로 이동합니다. 현재/전체 페이지 수는 이전 페이지 슬롯 안에 표시됩니다.
+- 드래그한 채 이전·다음 페이지 키 위에 잠시 머무르면 기존 페이지를 넘길 수 있습니다. 드래그 중 Esc, 덱 바깥이나 페이지 키에 놓기는 취소입니다. 페이지 이동 키(11·15번)는 옮길 수 없습니다.
+- 편집 모드에서 마지막 페이지의 15번 키를 클릭하면 **페이지 추가**가 됩니다. 빈 페이지에서는 상단에 삭제 아이콘이 표시됩니다. 모듈이 있는 페이지와 마지막 한 페이지는 삭제되지 않습니다.
+- 키보드로는 편집 모드에서 Space/Enter로 모듈을 선택하고 방향키로 이동한 뒤 Space/Enter로 놓습니다. Page Up/Down으로 페이지를 바꾸고 Esc로 선택을 취소할 수 있습니다.
+- 페이지별 배치와 마지막 페이지를 저장합니다. 기존 배치에서 새 페이지 이동 슬롯과 겹치는 모듈은 빈 모듈 슬롯으로 옮기고, 공간이 부족하면 새 페이지를 만듭니다. 원래 배치 데이터는 보관합니다. 이후 등록한 모듈도 빈 칸에 배치하고 페이지당 13개를 초과하면 자동으로 확장합니다.
+- 로컬 캡처는 화면·오디오·싱크 설정을 편집하고 하단에서 저장·적용·시작·중지를 조작합니다. NDI 패널은 요약·오디오·화면·싱크 상태를 표시합니다. NDI와 로컬 캡처의 A1 사용은 동시에 실행되지 않습니다.
+- 채팅 화면에는 연결·해제, 채널과 표시 설정, 브라우저 소스 주소 복사가 있습니다. 설정 저장 후에도 같은 화면에 머무릅니다. 저장하지 않고 뒤로 가면 변경사항은 버려집니다.
+- 상단 브랜드 영역을 끌어 창을 이동합니다. 오른쪽 도구로 고정·최소화·최대화·트레이로 숨기기를 사용합니다.
+- 방향키로 모듈을 이동하고 Enter/Space로 엽니다. 화면 왼쪽 위 뒤로 가기, Esc 또는 Alt+←로 모듈 목록에 돌아옵니다. 목록에서 Esc를 누르면 편집 모드를 마칩니다.
+- 아이콘은 로컬 SVG, 키캡은 CSS로 그리므로 UI 표시를 위한 외부 CDN 연결이 필요 없습니다.
+
+UI 글꼴은 앱에 내장된 **[Pretendard Variable](https://github.com/orioncactus/pretendard)**입니다. 인터넷 연결 없이 사용되며, 폰트의 SIL OFL 1.1 라이선스는 [폰트 라이선스](assets/fonts/pretendard/LICENSE.txt)에 포함되어 있습니다.
+
+슬롯의 베젤·아이콘 크기·제목 크기·정렬은 하나의 공통 렌더러와 CSS 규격을 사용합니다. 페이지 번호는 별도 고정 위치에 표시해 제목 위치가 변하지 않습니다.
+
+모듈은 `DeckModule`을 상속하며, OBS·NDI는 출력 공통 계층 `OutputDeckModule`을 한 번 더 상속합니다. 새 모듈 추가 방법과 생명주기는 **[모듈 개발 안내](docs/DECK-MODULES.md)**를 참고하세요.
+
+모듈 계약·실행 가드 검증: `npm run test:deck`.
+
+로컬 캡처는 **OBS 소스 준비 → 화면·소리 전달 → OBS 방송 시작** 순서로 안내합니다. 처음에는 준비 상태와 필요한 작업을 보여주고, **OBS 소스 준비**로 설치·등록한 뒤 **OBS 열고 전달 시작**을 누릅니다. 실제 방송·녹화는 OBS에서 시작합니다. [로컬 캡처 사용법](docs/LOCAL-CAPTURE.md)을 참고하세요.
+
+채팅은 채널 연결, 표시 설정, 실제 테마 미리보기를 한 화면에서 관리합니다. 재생으로 메시지 유지 시간과 사라짐을 확인하며, 저장 전에는 예시에만 반영됩니다. [미리보기 안내](docs/CHAT-PREVIEW.md)를 참고하세요.
+
+UI 검증: `npx electron test/smoke-deck.cjs`. 별도 테스트 프로필에서 모듈 배치 이전·편집·제어 패널·창 제어를 확인하며 송출은 시작하지 않습니다.
+
+## 트레이와 리소스 관리
+
+- **X / Alt+F4**는 창을 트레이로 숨깁니다. 실행 중인 캡처·NDI·채팅과 브라우저 소스 서버는 계속 동작합니다. 숨겨진 창은 화면 상태 조회를 쉽니다.
+- 시계 옆 **CHZZK Stream Deck** 아이콘을 클릭하거나 우클릭 → **스트림덱 열기**로 복원합니다. 실행 파일을 다시 열어도 같은 창을 복원합니다.
+- 트레이 우클릭 → **종료**는 진행 중인 작업을 기다린 뒤 로컬 A1 캡처, NDI 송신기, 채팅 프로세스를 정리하고 서버·트레이·앱을 종료합니다. 일부 모듈이 종료되지 않으면 오류를 표시하고 재시도할 수 있도록 앱을 유지합니다.
+- 특정 모듈만 멈추려면 그 모듈의 **캡처 중지 / 송출 중지 / 연결 해제**를 누릅니다. 나머지 모듈과 앱은 유지됩니다.
+- 로컬 캡처 종료는 OBS 안의 A1 캡처 자원을 해제합니다. OBS 자체와 FL Studio·Voicemeeter는 별도 앱이므로 종료하지 않습니다. Windows 로그인 시 자동 실행을 추가하지 않습니다.
+
+앱 로고 원본은 [icon.svg](icon.svg)입니다. 상단 로고·브라우저 아이콘에 같은 파일을 사용하고, Windows 창·트레이·실행 파일용 PNG/ICO는 `npm run build:icons`로 생성합니다. 생성물도 저장소에 포함되어 일반 빌드에 재생성이 필요하지 않습니다.
+
+구현 계약과 검증: [앱 생명주기](docs/APP-LIFECYCLE.md), `npm run test:lifecycle`.
 
 ## Quick Start
 
@@ -50,29 +140,26 @@ The default port is 7112.
 
 ## Build and Deployment
 
-### Build Windows Executable
+### v3.0.0 배포 파일 만들기
 
-1. **Run Build**
-```bash
-npm run build:win
+Windows x64에서 Node.js 24, Python 3, VS 2022 C++ Build Tools, Windows SDK, CMake 3.24+를 준비합니다.
+
+```powershell
+npm ci
+npm run build:release
 ```
 
-2. **Build Artifacts**
-- `dist/CHZZK Stream Deck Setup x.x.x.exe` - Installer
-- `dist/win-unpacked/` - Portable executable (no installation required)
+이 명령 하나로 버전 확인, 자동 테스트, NDI·OBS 로컬 모듈 빌드, 포터블 앱 패키징, SHA-256 생성을 차례로 실행합니다. 실행 중인 개발 앱과 충돌하지 않도록 배포 결과는 `dist/release/`에 생성합니다.
 
-3. **Run**
-Double-click `dist/win-unpacked/CHZZK Stream Deck.exe` to run the application.
+- `CHZZK-Stream-Deck-3.0.0-win-x64-portable.exe`: 사용자가 다운로드해 실행하는 단일 파일.
+- `SHA256SUMS.txt`: 다운로드 무결성 확인용.
+- `RELEASE-NOTES.md`: GitHub Release 본문에 사용할 안내.
 
-### CI/CD Automated Build
+`dist/` 전체는 Git에서 제외합니다. 소스와 빌드 설정만 커밋하고 실행 파일은 GitHub Release의 첨부 파일로 배포합니다. GitHub가 자동 제공하는 **Source code** ZIP은 실행 파일이 아닙니다.
 
-This project supports automated builds using GitHub Actions:
+변경사항을 커밋·푸시한 뒤 `v3.0.0` 태그를 푸시하면 GitHub Actions가 같은 명령으로 새로 빌드해 Release를 만들고 EXE·체크섬을 첨부합니다. `main`·`develop` 푸시와 PR에서는 빌드 아티팩트만 생성합니다. 태그와 `package.json`·`package-lock.json` 버전이 다르면 게시하지 않습니다.
 
-- **Automatic Build**: Pushing to the `main` branch automatically triggers a Windows build
-- **Release Creation**: Pushing a version tag (`v2.0.0`) automatically creates a release
-- **Build Artifacts**: Download built files from the GitHub Actions tab
-
-For more details, see [.github/workflows/README.md](.github/workflows/README.md).
+정확한 순서와 재실행 방법은 [빌드·릴리스 안내](docs/RELEASES.md)를 참고하세요.
 
 ## Project Structure
 
@@ -284,8 +371,8 @@ npm run build:win
 # Build portable version
 npm run build:win:portable
 
-# Auto-terminate Electron processes before build
-npm run prebuild:win
+# Test, build both capture modules, and produce the release EXE + checksums
+npm run build:release
 ```
 
 ### Module Development
@@ -313,3 +400,7 @@ MIT License
 ---
 
 For technical support and bug reports, please create an issue in the repository.
+
+### 로컬 캡처 설정과 실행 제어
+
+**로컬 캡처** 패널에서 화면·오디오·싱크 설정을 편집하고 캡처를 시작·중지합니다. **저장**은 다음 시작용 설정만 저장하고, 실행 중 **저장 후 적용**은 소스를 재시작해 반영합니다. NDI 설정과 분리된 local-capture.ini를 사용합니다. [사용법과 기존 설치 갱신 안내](docs/LOCAL-CAPTURE.md)를 참고하세요.

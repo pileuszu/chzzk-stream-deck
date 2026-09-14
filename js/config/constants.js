@@ -6,8 +6,8 @@
     
     // 서버 설정 (동적으로 로드)
     let SERVER_CONFIG = {
-        PORT: 7112,
-        HOST: 'localhost',
+        PORT: parseInt(window.location.port) || 7112,
+        HOST: window.location.hostname || 'localhost',
         get BASE_URL() {
             return `http://${this.HOST}:${this.PORT}`;
         },

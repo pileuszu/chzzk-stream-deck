@@ -3,13 +3,18 @@
  * 서버를 시작하고 애플리케이션 창을 생성합니다.
  */
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, dialog } = require('electron');
+const { TrayLifecycle } = require('./src/tray-lifecycle');
 const path = require('path');
 const ChzzkStreamDeckServer = require('./server');
+const { OutputModules, isTrustedSender } = require('./src/output-modules');
+const { prepareRuntime } = require('./src/output-runtime');
 
 let mainWindow = null;
 let server = null;
 let loadMainWindowFunc = null;
+let outputModules = null;
+let lifecycle = null;
 
 // 서버 인스턴스 생성
 function createServer() {
@@ -56,22 +61,45 @@ function createWindow() {
     }
     
     mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: 640,
+        height: 440,
+        minWidth: 600,
+        minHeight: 420,
+        frame: false,
+        backgroundColor: '#f4f4f3',
+        show: false,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: true
+            webSecurity: true,
+            preload: path.join(__dirname, 'preload.js')
         },
         title: 'CHZZK Stream Deck',
         // 개발 모드가 아닐 때도 DevTools 단축키 허용 (F12)
-        icon: undefined
+        icon: path.join(__dirname, 'assets/icons/icon.ico')
     });
     
+    lifecycle.attach(mainWindow);
+    mainWindow.once('ready-to-show', () => mainWindow?.show());
+    const sendWindowState = () => mainWindow?.webContents.send('window-controls:state', {
+        maximized: mainWindow.isMaximized(), pinned: mainWindow.isAlwaysOnTop()
+    });
+    mainWindow.on('maximize', sendWindowState);
+    mainWindow.on('unmaximize', sendWindowState);
+    mainWindow.on('always-on-top-changed', sendWindowState);
+
     // F12 키로 DevTools 열기 (빌드 모드에서도 가능)
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
             mainWindow.webContents.toggleDevTools();
+        }
+    });
+
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    mainWindow.webContents.on('will-navigate', (event, target) => {
+        const url = new URL(target);
+        if (url.origin !== `http://${server.host}:${server.port}` || !['/', '/index.html'].includes(url.pathname)) {
+            event.preventDefault();
         }
     });
 
@@ -117,33 +145,61 @@ function createWindow() {
     });
 }
 
-// 애플리케이션 준비 완료
-app.whenReady().then(() => {
-    createServer();
-    createWindow();
 
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => lifecycle?.show());
+    app.whenReady().then(() => {
+        app.setAppUserModelId('com.chzzk.streamdeck');
+        outputModules = new OutputModules({
+            root: prepareRuntime(app), openPath: file => shell.openPath(file)
+        });
+        createServer();
+        lifecycle = new TrayLifecycle({
+            app, Tray, Menu, dialog, icon: nativeImage.createFromPath(path.join(__dirname, 'assets/icons/icon.ico')),
+            getWindow: () => mainWindow, createWindow,
+            beforeStop: () => { server.stopping = true; },
+            afterStop: () => server.shutdown(),
+            onFailure: () => { server.stopping = false; outputModules.closing = false; }
+        });
+        lifecycle.register('화면·오디오 모듈', () => outputModules.shutdown());
+        lifecycle.register('채팅 모듈', () => server.stopChatModule());
+        for (const kind of ['status', 'action', 'configure']) {
+            ipcMain.handle('output-modules:' + kind, async (event, action) => {
+                if (!isTrustedSender(event, mainWindow, 'http://' + server.host + ':' + server.port)) {
+                    throw new Error('출력 모듈은 데스크톱 대시보드에서만 제어할 수 있습니다.');
+                }
+                if (kind !== 'status' && lifecycle.quitting) return { ok: false, error: '앱을 종료하는 중입니다.' };
+                try { return { ok: true, data: await outputModules[kind](action) }; }
+                catch (error) { return { ok: false, error: error.message }; }
+            });
         }
+        ipcMain.handle('window-controls:action', (event, action) => {
+            if (!isTrustedSender(event, mainWindow, 'http://' + server.host + ':' + server.port)) {
+                throw new Error('창 제어는 이 앱의 대시보드에서만 가능합니다.');
+            }
+            switch (action) {
+                case 'state': break;
+                case 'minimize': mainWindow.minimize(); break;
+                case 'toggle-maximize':
+                    if (mainWindow.isMaximized()) mainWindow.unmaximize(); else mainWindow.maximize();
+                    break;
+                case 'toggle-pin': mainWindow.setAlwaysOnTop(!mainWindow.isAlwaysOnTop()); break;
+                case 'close': setImmediate(() => mainWindow?.close()); break;
+                default: throw new Error('지원하지 않는 창 제어입니다.');
+            }
+            return { maximized: mainWindow.isMaximized(), pinned: mainWindow.isAlwaysOnTop() };
+        });
+        createWindow();
+        app.on('activate', () => lifecycle.show());
+    }).catch(error => { console.error(error); app.exit(1); });
+    // Native tray ownership keeps the app running after the window is hidden/destroyed.
+    app.on('window-all-closed', () => {});
+    for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
+        if (lifecycle) void lifecycle.requestQuit(); else app.quit();
     });
-});
+}
 
-// 모든 창이 닫힐 때
-app.on('window-all-closed', () => {
-    if (server) {
-        server.shutdown();
-    }
-    
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
-});
-
-// 애플리케이션 종료 전
-app.on('before-quit', () => {
-    if (server) {
-        server.shutdown();
-    }
-});
-
+module.exports = { getLifecycle: () => lifecycle, getServer: () => server, getWindow: () => mainWindow };

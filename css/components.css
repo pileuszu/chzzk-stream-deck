@@ -1,4 +1,15 @@
 /* 모듈 그리드 */
+.output-message { min-height: 2rem; margin-bottom: 1.25rem; color: #c4b5fd; overflow-wrap: anywhere; }
+.output-message.error { color: #fda4af; }
+.output-state { display: block; color: #c4b5fd; margin: 1rem 0 .6rem; }
+.output-card.active .output-state { color: #6ee7b7; }
+.output-details { white-space: pre-line; color: #ddd6fe; font-size: .95rem; }
+.output-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.25rem 0; }
+.output-actions button { font-family: inherit; }
+.output-actions button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.output-note { color: #aaa; font-size: .82rem; overflow-wrap: anywhere; margin-top: .6rem; }
+.output-card:hover { transform: none; }
+
 .modules-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
@@ -725,4 +736,4 @@ input[type="number"] {
 
 .status-value.active {
     color: #4ecdc4;
-} 
+}

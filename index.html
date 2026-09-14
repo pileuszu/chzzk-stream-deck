@@ -1,137 +1,39 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHZZK Stream Deck</title>
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/themes.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:* http://127.0.0.1:*">
+<link rel="preload" href="assets/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>CHZZK Stream Deck</title><link rel="stylesheet" href="css/deck.css">
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="dashboard-header">
-            <h1><i class="fas fa-stream"></i> CHZZK Stream Deck</h1>
-            <p class="subtitle">각 모듈을 클릭하여 활성화/비활성화할 수 있습니다</p>
+<main class="deck-shell">
+<header class="deck-header" aria-label="창 이동 영역">
+<div class="device-signature"><span class="brand-glyph" aria-hidden="true"><img src="icon.svg" alt="" draggable="false"></span><span><strong>CHZZK</strong> <b>Stream Deck</b></span></div>
+<div class="header-page">
+<button type="button" class="back-button" id="back-to-deck" title="모듈 목록으로 · Esc" aria-label="모듈 목록으로 돌아가기" hidden><svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6M8 12h12"/></svg></button>
+<div class="profile-label"><h1 id="screen-title">내 방송</h1><span id="screen-type" hidden>MAIN DECK</span></div>
+</div>
+<div class="window-controls" aria-label="앱 도구와 창 제어">
+<button id="remove-page" title="빈 페이지 삭제" aria-label="빈 페이지 삭제" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7"/></svg></button>
+<button id="edit-deck" aria-pressed="false" title="버튼 편집" aria-label="버튼 편집"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16l-1 4Z"/></svg></button>
+<button data-window-action="toggle-pin" id="pin-window" title="항상 위에 표시" aria-label="항상 위에 표시" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="m9 3 6 0-1 6 4 4v2H6v-2l4-4-1-6ZM12 15v6"/></svg></button><span class="control-divider"></span>
+<button data-window-action="minimize" title="최소화" aria-label="최소화"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+<button data-window-action="toggle-maximize" id="maximize-window" title="최대화" aria-label="최대화"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+<button data-window-action="close" class="close-window" title="트레이로 숨기기 · 모듈 실행 유지" aria-label="트레이로 숨기기"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+</div></header>
+<section class="deck-surface" aria-label="스트림덱 화면">
+<p id="screen-feedback" class="screen-feedback" role="status" aria-live="polite" hidden></p>
+<div class="screen-bed">
+<section data-deck-view="home" id="module-list" aria-label="방송 모듈"><div class="key-grid" id="key-grid" role="toolbar" aria-label="5열 3행, 모듈 13칸과 11·15번 페이지 이동 슬롯. 방향키로 이동할 수 있습니다."></div></section>
 
-        </header>
+</div>
 
-        <div class="modules-grid">
-            <!-- 채팅 모듈 -->
-            <div class="module-card" id="chat-module">
-                <div class="module-header">
-                    <div class="module-icon">
-                        <i class="fas fa-comments"></i>
-                    </div>
-                    <div class="module-info">
-                        <h3>실시간 채팅</h3>
-                        <p>스트리밍 채팅 표시</p>
-                    </div>
-                    <div class="module-controls">
-                        <button class="settings-btn" onclick="openSettings('chat')">
-                            <i class="fas fa-cog"></i>
-                        </button>
-                        <label class="switch">
-                            <input type="checkbox" id="chat-toggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="module-preview" id="chat-preview">
-                    <div class="browser-source-section">
-                        <h4>브라우저 소스 주소</h4>
-                        <div class="url-copy-container">
-                            <input type="text" id="chat-url" readonly>
-                            <button class="copy-btn" onclick="copyToClipboard('chat-url')">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+</section>
 
-    <!-- 설정 모달 -->
-    <div id="settings-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title">모듈 설정</h2>
-                <button class="close-btn" onclick="closeSettings()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <!-- 채팅 설정 -->
-                <div id="chat-settings" class="settings-panel" style="display: none;">
-                    <div class="settings-section">
-                        <h3>CHZZK 채팅 설정</h3>
-                        <div class="setting-item">
-                            <label for="chat-channel-id">채널 ID
-                                <i class="fas fa-info-circle info-icon" data-tooltip="CHZZK 채널 URL의 마지막 부분에 있는 32자리 영숫자 조합입니다."></i>
-                            </label>
-                            <input type="text" id="chat-channel-id" placeholder="CHZZK 채널 ID 입력 (예: d7ddd7585a271e55159ae47c0ce9a9dd)">
-                        </div>
-                        <div class="setting-item info-message">
-                            <small>채팅 모듈은 터미널에서 실행됩니다. 브라우저는 컨트롤 패널 역할만 합니다.</small>
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section">
-                        <h3>채팅 표시 설정</h3>
-                        <div class="setting-item">
-                            <label for="chat-max-messages">최대 메시지 수</label>
-                            <input type="number" id="chat-max-messages" min="1" max="100" value="5">
-                        </div>
-                        <div class="setting-item">
-                            <label for="chat-max-nickname-length">닉네임 최대 길이</label>
-                            <input type="number" id="chat-max-nickname-length" min="1" max="50" value="5">
-                        </div>
-                        <div class="setting-item">
-                            <label for="chat-fade-time">메시지 유지 시간 (초)
-                                <i class="fas fa-info-circle info-icon" data-tooltip="0이면 메시지가 사라지지 않습니다."></i>
-                            </label>
-                            <input type="number" id="chat-fade-time" min="0" max="300" value="0">
-                        </div>
-                        <div class="setting-item">
-                            <label for="chat-alignment">정렬 방식</label>
-                            <select id="chat-alignment">
-                                <option value="default">기본</option>
-                                <option value="left">왼쪽 정렬</option>
-                                <option value="right">오른쪽 정렬</option>
-                                <option value="center">중앙 정렬</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section">
-                        <h3>테마 설정</h3>
-                        <div class="setting-item">
-                            <label for="chat-theme-select">테마 선택</label>
-                            <select id="chat-theme-select">
-                                <option value="simple-purple" selected>Simple Purple</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeSettings()">취소</button>
-                <button class="btn btn-primary" onclick="saveSettings()">저장</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/config/constants.js"></script>
-    <script src="js/utils/settings.js"></script>
-    <script src="js/utils/ui.js"></script>
-    <script src="js/modules/chat.js"></script>
-    <script src="js/main.js"></script>
-    
-    <script>
-        // 전역 함수들은 js/main.js에서 이미 정의됨
-        // window.openSettings, window.closeSettings, window.saveSettings, window.copyToClipboard
-    </script>
-</body>
-</html> 
+</main>
+<span id="deck-placement-status" class="sr-only" role="status" aria-live="polite"></span>
+<div id="output-message" class="toast" role="status" aria-live="polite"></div>
+<script src="js/config/constants.js"></script><script src="js/utils/settings.js"></script><script src="js/utils/ui.js"></script><script src="js/modules/chat.js"></script><script src="js/modules/outputs.js"></script><script type="module" src="js/main.js"></script>
+</body></html>

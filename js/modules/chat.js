@@ -136,15 +136,18 @@ class ChatModule {
                 this.stopStatusMonitoring();
                 console.log('채팅 종료');
                 this.showSuccess('채팅 모듈이 중지되었습니다.');
+                return true;
             }
+            throw new Error(result.error || '채팅 중지를 확인하지 못했습니다.');
         } catch (error) {
             console.error('채팅 모듈 중지 실패:', error);
-            this.isActive = false;
+            this.showError(error.message);
+            return false;
         }
     }
     
     async restart() {
-        await this.stop();
+        if (!await this.stop()) return false;
         const reconnectDelay = window.APP_CONFIG?.CHAT?.RECONNECT_DELAY || 500;
         await new Promise(resolve => setTimeout(resolve, reconnectDelay));
         return await this.start();
@@ -155,6 +158,7 @@ class ChatModule {
         
         const checkInterval = window.APP_CONFIG?.CHAT?.STATUS_CHECK_INTERVAL || 5000;
         this.statusInterval = setInterval(async () => {
+            if (document.hidden) return;
             try {
                 const baseUrl = window.APP_CONFIG?.SERVER?.BASE_URL || window.location.origin;
                 const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
