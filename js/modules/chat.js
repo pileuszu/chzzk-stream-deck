@@ -1,0 +1,217 @@
+/**
+ * CHZZK 채팅 모듈
+ * 채팅 처리는 백엔드 서버에서 담당
+ */
+class ChatModule {
+    constructor(settingsManager) {
+        this.settingsManager = settingsManager;
+        this.isActive = false;
+        this.channelId = null;
+        this.statusInterval = null;
+        this.status = { state: 'idle', connected: false, active: false };
+        
+        this.checkInitialStatus();
+    }
+    
+    async checkInitialStatus() {
+        try {
+            const baseUrl = window.location.origin;
+            const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
+            const response = await fetch(`${baseUrl}${statusEndpoint}`);
+            
+            if (!response.ok) {
+                // 서버가 응답하지 않으면 무시
+                return;
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) this.adoptStatus(result.status.chat);
+        } catch (error) {
+            // 서버가 실행되지 않은 경우 무시 (조용히 실패)
+            console.debug('초기 상태 확인 실패 (정상):', error.message);
+        }
+    }
+    adoptStatus(status) {
+        this.status = status || { state: 'idle', active: false, connected: false };
+        this.isActive = Boolean(this.status.active);
+        this.updateToggleState(this.isActive); this.updateUIState(this.isActive);
+        if (this.isActive) this.startStatusMonitoring(); else this.stopStatusMonitoring();
+        window.deck?.update();
+    }
+    
+    async start() {
+        const settings = this.settingsManager.getModuleSettings('chat');
+        
+        if (!settings.channelId) {
+            this.showError('CHZZK 채널 ID를 먼저 설정해주세요.');
+            return false;
+        }
+        
+        this.channelId = settings.channelId;
+        
+        // 서버가 준비될 때까지 대기 (최대 10초)
+        const maxRetries = 20;
+        const retryDelay = 500; // 500ms
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const baseUrl = window.location.origin;
+                const startEndpoint = window.APP_CONFIG?.API?.CHAT_START || '/api/chat/start';
+                const contentType = window.APP_CONFIG?.HTTP_HEADERS?.CONTENT_TYPE_JSON || 'application/json';
+                
+                // 타임아웃을 위한 AbortController 사용
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const response = await fetch(`${baseUrl}${startEndpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': contentType },
+                    body: JSON.stringify({ channelId: this.channelId }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.adoptStatus(result.status.chat);
+                    this.showSuccess('채팅 연결을 요청했습니다. 인증 상태를 확인합니다.');
+                    return true;
+                } else {
+                    throw new Error(result.error || '채팅 모듈 시작에 실패했습니다.');
+                }
+            } catch (error) {
+                // 연결 거부 또는 네트워크 오류인 경우 재시도
+                const isConnectionError = error.name === 'AbortError' || 
+                                         error.message.includes('fetch') || 
+                                         error.message.includes('Failed to fetch') || 
+                                         error.message.includes('ERR_CONNECTION_REFUSED') ||
+                                         error.message.includes('NetworkError');
+                
+                if (isConnectionError && attempt < maxRetries - 1) {
+                    // 재시도 전 대기
+                    console.log(`서버 연결 시도 ${attempt + 1}/${maxRetries}...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    continue;
+                }
+                
+                // 마지막 시도이거나 다른 오류인 경우
+                console.error('CHZZK 채팅 모듈 시작 실패:', error);
+                
+                let errorMsg = error.message;
+                if (isConnectionError) {
+                    errorMsg = '백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요. 잠시 후 다시 시도해주세요.';
+                } else if (error.message.includes('HTTP')) {
+                    errorMsg = `서버 오류: ${error.message}`;
+                }
+                
+                this.showError(`채팅 모듈 시작 실패: ${errorMsg}`);
+                return false;
+            }
+        }
+        
+        return false;
+    }
+    
+    async stop() {
+        try {
+            const baseUrl = window.location.origin;
+            const stopEndpoint = window.APP_CONFIG?.API?.CHAT_STOP || '/api/chat/stop';
+            const contentType = window.APP_CONFIG?.HTTP_HEADERS?.CONTENT_TYPE_JSON || 'application/json';
+            const response = await fetch(`${baseUrl}${stopEndpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': contentType }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.adoptStatus(result.status.chat);
+                console.log('채팅 종료');
+                this.showSuccess('채팅 모듈이 중지되었습니다.');
+                return true;
+            }
+            throw new Error(result.error || '채팅 중지를 확인하지 못했습니다.');
+        } catch (error) {
+            console.error('채팅 모듈 중지 실패:', error);
+            this.showError(error.message);
+            return false;
+        }
+    }
+    
+    async restart() {
+        if (!await this.stop()) return false;
+        const reconnectDelay = window.APP_CONFIG?.CHAT?.RECONNECT_DELAY || 500;
+        await new Promise(resolve => setTimeout(resolve, reconnectDelay));
+        return await this.start();
+    }
+    
+    startStatusMonitoring() {
+        if (this.statusInterval) return;
+        
+        const checkInterval = window.APP_CONFIG?.CHAT?.STATUS_CHECK_INTERVAL || 5000;
+        this.statusInterval = setInterval(async () => {
+            if (document.hidden) return;
+            try {
+                const baseUrl = window.location.origin;
+                const statusEndpoint = window.APP_CONFIG?.API?.STATUS || '/api/status';
+                const response = await fetch(`${baseUrl}${statusEndpoint}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const previousError = this.status.error;
+                    this.adoptStatus(result.status.chat);
+                    if (this.status.error && this.status.error !== previousError) this.showError(this.status.error);
+                }
+            } catch (error) {
+                // 서버 연결 실패 시 무시
+            }
+        }, checkInterval);
+    }
+    
+    stopStatusMonitoring() {
+        if (this.statusInterval) {
+            clearInterval(this.statusInterval);
+            this.statusInterval = null;
+        }
+    }
+    
+    updateToggleState(checked) {
+        const toggle = document.getElementById('chat-toggle');
+        if (toggle) {
+            toggle.checked = checked;
+        }
+    }
+    
+    updateUIState(isActive) {
+        if (window.app?.uiManager) {
+            window.app.uiManager.updateModuleCard('chat', isActive);
+        }
+    }
+    
+    showError(message) {
+        if (window.app?.uiManager) {
+            window.app.uiManager.showError(message);
+        } else {
+            alert(message);
+        }
+    }
+    
+    showSuccess(message) {
+        if (window.app?.uiManager) {
+            window.app.uiManager.showSuccess(message);
+        }
+    }
+    
+    applyTheme(themeName) {
+        if (window.app?.uiManager) {
+            window.app.uiManager.applyChatTheme(themeName);
+        }
+    }
+}

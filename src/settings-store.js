@@ -1,15 +1,16 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { DEFAULT_SETTINGS, validateSettings } = require("../shared/chat-config");
+const { DEFAULT_SETTINGS, validateSettings, migrateSettings } = require("../shared/chat-config");
 
 class SettingsStore {
   constructor(filePath) {
     this.filePath = filePath;
     this.settings = { ...DEFAULT_SETTINGS };
-    if (fs.existsSync(filePath)) {
+    this.initialized = Boolean(filePath && fs.existsSync(filePath));
+    if (this.initialized) {
       try {
-        this.settings = validateSettings(
-          JSON.parse(fs.readFileSync(filePath, "utf8")),
+        this.settings = migrateSettings(
+          JSON.parse(fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, '')),
         );
       } catch (error) {
         throw new Error(
@@ -21,8 +22,10 @@ class SettingsStore {
   get() {
     return { ...this.settings };
   }
-  update(patch) {
+  update(patch, { initialize = false } = {}) {
+    if (initialize && this.initialized) return this.get();
     const next = validateSettings(patch, this.settings);
+    if (this.filePath) {
     fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
     const temporary = `${this.filePath}.${process.pid}.tmp`;
     try {
@@ -33,7 +36,9 @@ class SettingsStore {
     } finally {
       if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
     }
+    }
     this.settings = next;
+    this.initialized = true;
     return this.get();
   }
 }

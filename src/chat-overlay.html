@@ -1,21 +1,2 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CHZZK 채팅 오버레이</title>
-    <link rel="stylesheet" href="/css/overlay.css" />
-    <script src="/shared/chat-config.js" defer></script>
-    <script src="/js/overlay/renderer.js" defer></script>
-    <script src="/js/overlay/main.js" defer></script>
-  </head>
-  <body>
-    <main
-      id="chat"
-      class="chat-stack"
-      aria-label="실시간 채팅"
-      aria-live="polite"
-      aria-relevant="additions"
-    ></main>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>CHZZK 채팅 오버레이</title><link rel="stylesheet" href="/css/chat-overlay.css"><link rel="stylesheet" href="/css/themes/unicorn-overlord.css"><link rel="stylesheet" href="/css/themes/maplestory.css"><link rel="stylesheet" href="/css/chat-preview.css"></head><body><div class="chat-container theme-simple-purple" id="chatContainer"><div class="chat-messages" id="chatMessages"></div></div><script src="/shared/chat-config.js"></script><script src="/js/overlay/renderer.js"></script><script type="module" src="/js/chat/overlay.mjs"></script></body></html>

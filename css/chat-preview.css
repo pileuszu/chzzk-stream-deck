@@ -1,0 +1,15 @@
+/* Compact stage framing; bubble rendering stays shared with the OBS overlay. */
+body.is-chat-preview .chat-container { width: 100vw; height: 100vh; padding: 8px 12px 10px 30px; }
+body.is-chat-preview .chat-messages { padding: 18px 14px 14px 22px; gap: 8px; }
+body.is-chat-preview .chat-message-container { flex-shrink: 0; }
+body.is-preview-still .chat-message-container { animation: none !important; }
+body.is-preview-still .chat-message { opacity: 1; transform: none; }
+body.is-chat-preview .chat-container.theme-unicorn-overlord,
+body.is-chat-preview .chat-container.theme-maplestory { padding: 8px 12px 10px; }
+body.is-chat-preview .theme-unicorn-overlord .chat-messages,
+body.is-chat-preview .theme-maplestory .chat-messages { padding: 18px 4px 14px; }
+/* Shared appearance controls apply equally to OBS and the embedded preview. */
+.chat-container .message { font-size: var(--chat-font-size, 18px) !important; }
+.chat-container .chat-message-container { opacity: var(--chat-opacity, 1); }
+.chat-container:not(.fade-mask) .chat-messages { mask: none !important; -webkit-mask: none !important; }
+.chat-container.fade-mask .chat-messages { mask-image: linear-gradient(to bottom, transparent, #000 24px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px); }

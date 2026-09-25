@@ -25,7 +25,7 @@ class ChzzkStreamDeckServer {
     this.clientFactory =
       options.clientFactory || ((id) => new ChzzkChatClient(id));
     this.store = new SettingsStore(
-      options.settingsPath ||
+      options.settingsPath !== undefined ? options.settingsPath :
         path.join(
           process.env.CHZZK_DATA_DIR || path.join(__dirname, ".data"),
           "settings.json",
@@ -35,6 +35,7 @@ class ChzzkStreamDeckServer {
     this.messages = [];
     this.connections = new Set();
     this.serverInstance = null;
+    this.stopping = false;
     this.idleStatus = {
       state: "idle",
       active: false,
@@ -63,6 +64,7 @@ class ChzzkStreamDeckServer {
     this.app.disable("x-powered-by");
     this.app.use(express.json({ limit: "64kb" }));
     this.app.use("/api", (req, res, next) => {
+      if (this.stopping && req.method !== 'GET') return res.status(503).json({ success: false, error: '앱을 종료하는 중입니다.' });
       if (
         req.method !== "GET" &&
         req.headers.origin &&
@@ -78,9 +80,10 @@ class ChzzkStreamDeckServer {
         `/${directory}`,
         express.static(path.join(__dirname, directory)),
       );
-    this.app.get("/", (req, res) =>
+    this.app.get(["/", "/index.html"], (req, res) =>
       res.sendFile(path.join(__dirname, "index.html")),
     );
+    this.app.get('/icon.svg', (req, res) => res.sendFile(path.join(__dirname, 'icon.svg')));
     for (const route of ["/chat-overlay.html", "/chat.html"])
       this.app.get(route, (req, res) =>
         res.sendFile(path.join(__dirname, "src/chat-overlay.html")),
@@ -101,13 +104,15 @@ class ChzzkStreamDeckServer {
       res.json({ success: true, status: this.getStatus() }),
     );
     this.app.get("/api/chat/settings", (req, res) =>
-      res.json({ success: true, settings: this.store.get() }),
+      res.set('Cache-Control', 'no-store').json({ success: true, settings: this.store.get(), initialized: this.store.initialized }),
     );
     this.app.post("/api/chat/settings", (req, res, next) => {
       try {
-        const settings = this.store.update(req.body);
+        if (!req.is('application/json')) return res.status(415).json({ success: false, error: 'JSON 설정이 필요합니다.' });
+        const settings = this.store.update(req.body?.initialize === true ? req.body.settings : req.body,
+          { initialize: req.body?.initialize === true });
         this.broadcast({ type: "settings", settings });
-        res.json({ success: true, settings });
+        res.json({ success: true, settings, initialized: this.store.initialized });
       } catch (error) {
         error.status = 400;
         next(error);
@@ -254,6 +259,12 @@ class ChzzkStreamDeckServer {
     return this.startPromise;
   }
   async shutdown() {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.stopping = true;
+    this.shutdownPromise = this.close();
+    return this.shutdownPromise;
+  }
+  async close() {
     this.stopChat();
     for (const connection of this.connections) connection.end();
     this.connections.clear();

@@ -6,7 +6,7 @@ function walk(folder) {
   for (const file of readdirSync(folder, { withFileTypes: true })) {
     const name = join(folder, file.name);
     if (file.isDirectory()) walk(name);
-    else if (name.endsWith(".js")) files.push(name);
+    else if (/\.(?:js|mjs|cjs)$/.test(name)) files.push(name);
   }
 }
 for (const folder of ["src", "shared", "js", "test"]) walk(folder);

@@ -1,245 +1,39 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light" />
-    <title>CHZZK Stream Deck · 방송 준비실</title>
-    <link rel="stylesheet" href="/css/dashboard.css" />
-    <script src="/shared/chat-config.js" defer></script>
-    <script src="/js/dashboard.js" defer></script>
-  </head>
-  <body>
-    <aside class="sidebar">
-      <a class="brand" href="/" aria-label="CHZZK Stream Deck 홈"
-        ><span class="brand-mark">↗</span
-        ><span>CHZZK<br /><b>STREAM DECK</b></span></a
-      >
-      <div class="side-caption">YOUR STREAM, YOUR SPACE</div>
-      <nav>
-        <a class="nav-active" href="#studio">◫ <span>방송 준비실</span></a
-        ><a href="#themes">✧ <span>채팅 테마</span></a
-        ><a href="#obs-guide">▣ <span>OBS 연결</span></a>
-      </nav>
-      <div class="side-bottom">
-        <span class="tiny-light"></span> 내 컴퓨터에서 실행 중
-        <p>방송에 나만의 분위기를 더해요.</p>
-        <small>STREAM DECK / 2.1</small>
-      </div>
-    </aside>
-    <main id="studio">
-      <header class="topbar">
-        <span>WORKSPACE <i>/</i> 방송 준비실</span
-        ><span id="server-state" class="server-state">서버 연결 중</span>
-      </header>
-      <div class="page-heading">
-        <div>
-          <p class="eyebrow">LET'S GO LIVE</p>
-          <h1>오늘 방송, 준비됐나요?</h1>
-          <p>채널을 연결하고, 채팅창에 나만의 분위기를 담아보세요.</p>
-        </div>
-        <div class="status-pill" id="chat-state" role="status">
-          <span></span> 연결 대기
-        </div>
-      </div>
-      <div id="notice" class="notice" role="status" hidden></div>
-      <div class="workspace-grid">
-        <div class="control-column">
-          <section class="panel channel-panel">
-            <div class="section-heading">
-              <div>
-                <span class="step">01</span>
-                <h2>내 채널 연결</h2>
-              </div>
-              <span id="channel-name" class="muted">CHZZK</span>
-            </div>
-            <label for="channelId">치지직 채널 URL 또는 ID</label>
-            <div class="channel-input">
-              <input
-                id="channelId"
-                type="text"
-                placeholder="https://chzzk.naver.com/채널ID"
-                autocomplete="off"
-                spellcheck="false"
-              /><button id="connect" class="primary">채팅 연결 ↗</button
-              ><button id="disconnect" class="secondary" hidden>
-                연결 해제
-              </button>
-            </div>
-            <p class="help" id="connection-detail">
-              방송 중인 채널의 채팅을 읽어옵니다. 스트림 키는 필요 없어요.
-            </p>
-          </section>
-          <form id="settings-form">
-            <section id="themes" class="panel">
-              <div class="section-heading">
-                <div>
-                  <span class="step">02</span>
-                  <h2>채팅 테마 고르기</h2>
-                </div>
-                <span class="muted">3가지 분위기</span>
-              </div>
-              <div id="theme-options" class="theme-options"></div>
-              <p class="help">
-                메이플스토리 테마는 단풍잎과 버섯에서 영감을 받은 팬 테마입니다.
-              </p>
-            </section>
-            <section class="panel">
-              <div class="section-heading">
-                <div>
-                  <span class="step">03</span>
-                  <h2>내 화면에 맞추기</h2>
-                </div>
-                <button id="reset-settings" class="text-button" type="button">
-                  기본값
-                </button>
-              </div>
-              <div class="settings-grid">
-                <label
-                  >표시할 메시지 수<input
-                    name="maxMessages"
-                    type="number"
-                    min="1"
-                    max="100"
-                    value="5"
-                  /><small>최근 채팅부터 표시</small></label
-                ><label
-                  >글자 크기 (px)<input
-                    name="fontSize"
-                    type="number"
-                    min="12"
-                    max="36"
-                    value="18"
-                  /><small>작은 화면에도 또렷하게</small></label
-                ><label
-                  >메시지 유지 시간 (초)<input
-                    name="fadeTime"
-                    type="number"
-                    min="0"
-                    max="300"
-                    value="0"
-                  /><small>0이면 자동으로 사라지지 않아요</small></label
-                ><label
-                  >닉네임 최대 길이<input
-                    name="maxNicknameLength"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value="12"
-                  /><small>긴 이름은 말줄임표로 표시</small></label
-                ><label
-                  >정렬<select name="alignment">
-                    <option value="left">왼쪽</option>
-                    <option value="center">가운데</option>
-                    <option value="right">오른쪽</option>
-                  </select></label
-                ><label
-                  >불투명도 (%)<input
-                    name="opacity"
-                    type="number"
-                    min="40"
-                    max="100"
-                    value="96"
-                /></label>
-              </div>
-              <label class="check-row"
-                ><input name="fadeMask" type="checkbox" /><span
-                  >채팅창 위쪽을 부드럽게 숨기기</span
-                ></label
-              >
-              <div class="save-row">
-                <span id="save-state">저장된 설정을 사용 중이에요.</span
-                ><button class="primary" id="save-settings" type="submit">
-                  방송 화면에 적용
-                </button>
-              </div>
-            </section>
-          </form>
-        </div>
-        <aside class="preview-column">
-          <section class="preview-panel">
-            <div class="preview-heading">
-              <div>
-                <span class="eyebrow">CHAT PREVIEW</span>
-                <h2 id="preview-theme">채팅 미리보기</h2>
-              </div>
-              <span class="preview-dim">400 × 600</span>
-            </div>
-            <div class="preview-tabs" role="group" aria-label="미리보기 모드">
-              <button
-                id="sample-mode"
-                class="active"
-                type="button"
-                aria-pressed="true"
-              >
-                샘플 채팅</button
-              ><button id="live-mode" type="button" aria-pressed="false">
-                실제 채팅
-              </button>
-            </div>
-            <div class="preview-stage" id="preview-stage">
-              <span class="stage-label">YOUR NEXT ADVENTURE</span
-              ><iframe
-                id="preview"
-                title="채팅 오버레이 미리보기"
-                src="/chat-overlay.html?preview=1"
-              ></iframe
-              ><span class="stage-corner">✧</span>
-            </div>
-            <div class="preview-footer">
-              <span id="preview-caption">샘플은 이 미리보기에만 표시돼요.</span
-              ><button type="button" id="refresh-preview" class="text-button">
-                새로 보기 ↻
-              </button>
-            </div>
-          </section>
-          <section id="obs-guide" class="panel obs-guide">
-            <div class="section-heading">
-              <div>
-                <span class="obs-icon">◉</span>
-                <h2>OBS에 가져오기</h2>
-              </div>
-              <span class="muted">BROWSER SOURCE</span>
-            </div>
-            <p>
-              소스 목록에서 <b>+ → 브라우저</b>를 추가하고 아래 주소를
-              붙여넣으세요.
-            </p>
-            <div class="copy-row">
-              <input
-                id="overlay-url"
-                readonly
-                aria-label="OBS 브라우저 소스 주소"
-              /><button id="copy-url" class="secondary" type="button">
-                복사
-              </button>
-            </div>
-            <div class="obs-sizes">
-              <span>너비 <b>400</b></span
-              ><span>높이 <b>600</b></span
-              ><span>배경 <b>투명</b></span>
-            </div>
-            <p class="help">
-              OBS를 쓰는 동안 이 앱을 켜두세요. 테마를 적용하면 방송 화면도 바로
-              바뀝니다.
-            </p>
-            <a
-              id="open-overlay"
-              class="text-link"
-              href="/chat-overlay.html"
-              target="_blank"
-              rel="noopener"
-              >오버레이 새 창에서 열기 ↗</a
-            >
-          </section>
-        </aside>
-      </div>
-      <footer class="page-footer">
-        <span>MADE FOR YOUR LIVE MOMENTS</span
-        ><button id="clear-chat" class="text-button" type="button">
-          화면의 채팅 비우기
-        </button>
-      </footer>
-    </main>
-  </body>
-</html>
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:* http://127.0.0.1:*">
+<link rel="preload" href="assets/fonts/pretendard/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>CHZZK Stream Deck</title><link rel="stylesheet" href="css/deck.css">
+</head>
+<body>
+<main class="deck-shell">
+<header class="deck-header" aria-label="창 이동 영역">
+<div class="device-signature"><span class="brand-glyph" aria-hidden="true"><img src="icon.svg" alt="" draggable="false"></span><span><strong>CHZZK</strong> <b>Stream Deck</b></span></div>
+<div class="header-page">
+<button type="button" class="back-button" id="back-to-deck" title="모듈 목록으로 · Esc" aria-label="모듈 목록으로 돌아가기" hidden><svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6M8 12h12"/></svg></button>
+<div class="profile-label"><h1 id="screen-title">내 방송</h1><span id="screen-type" hidden>MAIN DECK</span></div>
+</div>
+<div class="window-controls" aria-label="앱 도구와 창 제어">
+<button id="remove-page" title="빈 페이지 삭제" aria-label="빈 페이지 삭제" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7"/></svg></button>
+<button id="edit-deck" aria-pressed="false" title="버튼 편집" aria-label="버튼 편집"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16l-1 4Z"/></svg></button>
+<button data-window-action="toggle-pin" id="pin-window" title="항상 위에 표시" aria-label="항상 위에 표시" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="m9 3 6 0-1 6 4 4v2H6v-2l4-4-1-6ZM12 15v6"/></svg></button><span class="control-divider"></span>
+<button data-window-action="minimize" title="최소화" aria-label="최소화"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+<button data-window-action="toggle-maximize" id="maximize-window" title="최대화" aria-label="최대화"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+<button data-window-action="close" class="close-window" title="트레이로 숨기기 · 모듈 실행 유지" aria-label="트레이로 숨기기"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+</div></header>
+<section class="deck-surface" aria-label="스트림덱 화면">
+<p id="screen-feedback" class="screen-feedback" role="status" aria-live="polite" hidden></p>
+<div class="screen-bed">
+<section data-deck-view="home" id="module-list" aria-label="방송 모듈"><div class="key-grid" id="key-grid" role="toolbar" aria-label="5열 3행, 모듈 13칸과 11·15번 페이지 이동 슬롯. 방향키로 이동할 수 있습니다."></div></section>
+
+</div>
+
+</section>
+
+</main>
+<span id="deck-placement-status" class="sr-only" role="status" aria-live="polite"></span>
+<div id="output-message" class="toast" role="status" aria-live="polite"></div>
+<script src="shared/chat-config.js"></script><script src="js/config/constants.js"></script><script src="js/utils/settings.js"></script><script src="js/utils/ui.js"></script><script src="js/modules/chat.js"></script><script src="js/modules/outputs.js"></script><script type="module" src="js/main.js"></script>
+</body></html>

@@ -1,0 +1,42 @@
+.theme-maplestory .chat-message-container {
+  position: relative;
+  width: fit-content;
+  max-width: 95%;
+  flex-shrink: 0;
+}
+.theme-maplestory .chat-message {
+  color: #543b2c;
+  background: linear-gradient(180deg, #fff8e5, #fff1d2);
+  border: 2px solid #c48243;
+  border-radius: 12px 18px 18px 18px;
+  padding: 13px 19px 15px;
+  overflow: visible;
+  backdrop-filter: none;
+  box-shadow: 0 3px 0 #8e552d, 0 6px 12px #3a261326, inset 0 0 0 3px #ffe4ad;
+}
+.theme-maplestory .username {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #985224;
+  font: 750 13px/1.4 Pretendard, sans-serif;
+  margin: 0 0 7px;
+  overflow-wrap: anywhere;
+}
+.theme-maplestory .username::before {
+  content: "";
+  flex: 0 0 18px;
+  width: 18px;
+  height: 20px;
+  background: url("/assets/images/maple-leaf.svg") center / contain no-repeat;
+}
+.theme-maplestory .message {
+  color: #543b2c;
+  font: 500 17px/1.52 Pretendard, sans-serif;
+  text-align: left;
+  white-space: pre-wrap;
+}
+.theme-maplestory .chat-messages {
+  mask-image: linear-gradient(to bottom, transparent, #000 24px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px);
+}

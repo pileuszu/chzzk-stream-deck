@@ -1,0 +1,86 @@
+import { DeckModule } from '../core/module.mjs';
+import { panel } from './chat-panel.mjs';
+import { ChatPreview } from './chat-preview.mjs';
+import { CHAT_THEMES } from '../../chat/themes.mjs';
+import { InfoPopovers } from '../core/info-popovers.mjs';
+
+const FIELDS = { theme: 'theme-select', channelId: 'channel-id', maxMessages: 'max-messages', alignment: 'alignment', fadeTime: 'fade-time', maxNicknameLength: 'max-nickname-length', fontSize: 'font-size', opacity: 'opacity' };
+
+export class ChatDeckModule extends DeckModule {
+    constructor() { super({ id: 'chat', label: 'CHZZK 채팅', icon: 'chat', accent: '#c3a5ff', tint: '#3a2c51', eyebrow: 'CHAT MODULE', description: '채팅 연결과 표시 설정을 미리보기와 함께 관리합니다.', panel }); }
+    getState({ app }) { return { active: app.chatModule.isActive }; }
+    async onEnter({ app, deck }) {
+        await app.settingsReady;
+        await app.chatModule.checkInitialStatus();
+        if (deck.view !== this.id) return;
+        app.uiManager.currentModule = this.id;
+        document.getElementById('chat-channel-id').setCustomValidity('');
+        app.settingsManager.loadModalSettings(this.id);
+        app.settingsManager.updateUI();
+        this.preview.sync();
+        this.refresh({ app });
+    }
+    onLeave({ app }) { this.info.close(); this.preview.suspend(); app.uiManager.currentModule = null; }
+    bind(context) {
+        const root = document.getElementById(this.panel.id);
+        this.info = new InfoPopovers(root, this.listeners.signal);
+        document.getElementById('chat-theme-select').replaceChildren(...CHAT_THEMES.map(theme => new Option(theme.label, theme.id)));
+        this.preview = new ChatPreview(root, { signal: this.listeners.signal, isActive: () => context.deck.view === this.id });
+        this.listen(document.getElementById('chat-settings-form'), 'submit', async event => {
+            event.preventDefault(); await context.app.uiManager.saveSettings(); this.refresh(context);
+        }, context);
+        this.listen(root, 'input', () => {
+            this.validateChannel(); this.refresh(context);
+        }, context);
+        this.listen(root, 'change', () => this.refresh(context), context);
+        this.listen(document.getElementById('chat-connect'), 'click', () => this.connect(context), context);
+        this.listen(document.getElementById('copy-chat-source'), 'click', () => this.copySource(context), context);
+    }
+    validateChannel() {
+        const input = document.getElementById('chat-channel-id');
+        try { window.StreamDeckConfig.normalizeChannelId(input.value); input.setCustomValidity(''); }
+        catch (error) { input.setCustomValidity(error.message); }
+    }
+    isDirty({ app }) {
+        const settings = app.settingsManager.getModuleSettings(this.id);
+        return document.getElementById('chat-fade-mask').checked !== Boolean(settings.fadeMask) ||
+            Object.entries(FIELDS).some(([key, id]) => document.getElementById('chat-' + id).value !== String(settings[key] ?? ''));
+    }
+    async connect(context) {
+        const { app } = context;
+        if (app.chatBusy) return;
+        if (!app.chatModule.isActive) {
+            const input = document.getElementById('chat-channel-id');
+            input.setCustomValidity(input.value ? '' : '연결할 CHZZK 채널 ID를 입력해 주세요.');
+            if (!document.getElementById('chat-settings-form').reportValidity()) return;
+            app.chatBusy = true; context.deck.update();
+            try { await app.settingsManager.saveModalSettings(this.id); }
+            finally { app.chatBusy = false; context.deck.update(); }
+        }
+        await app.toggleChat(); this.refresh(context);
+    }
+    refresh(context) {
+        const { app } = context;
+        const dirty = this.isDirty(context);
+        const button = document.getElementById('chat-connect');
+        button.disabled = app.chatBusy;
+        button.textContent = app.chatModule.isActive ? '연결 해제' : dirty ? '저장 후 연결' : '연결';
+        button.classList.toggle('stop-button', app.chatModule.isActive);
+        document.getElementById('save-chat-settings').disabled = app.chatBusy;
+        const state = document.getElementById('chat-connection-state');
+        const connection = app.chatModule.status || {};
+        state.dataset.state = app.chatBusy || ['connecting', 'reconnecting'].includes(connection.state) ? 'busy' : connection.connected ? 'on' : 'off';
+        state.textContent = app.chatBusy ? '처리 중…' : ({ connecting: '인증 중…', reconnecting: '재연결 중…', connected: '연결됨', error: '연결 실패' })[connection.state] || '연결 안 됨';
+        state.title = connection.error || '';
+        const draft = document.getElementById('chat-draft-state');
+        draft.dataset.dirty = String(dirty);
+        draft.textContent = dirty ? '미저장 변경' : '저장된 설정';
+        document.getElementById('copy-chat-source').title = document.getElementById('chat-url').value;
+    }
+    async copySource({ app, deck }) {
+        app.settingsManager.updateUI();
+        const url = document.getElementById('chat-url').value;
+        try { await navigator.clipboard.writeText(url); deck.notify('채팅 브라우저 소스 주소를 복사했습니다.'); }
+        catch { deck.notify('브라우저 소스 주소: ' + url, true); }
+    }
+}

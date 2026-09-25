@@ -46,7 +46,7 @@
       const url = Object.hasOwn(emojis, match[1]) && imageUrl(emojis[match[1]]);
       if (url) {
         const image = document.createElement("img");
-        image.className = "chat-emote";
+        image.className = "chat-emote emoticon";
         image.alt = match[0];
         image.src = url;
         image.referrerPolicy = "no-referrer";
@@ -155,5 +155,5 @@
       this.container.replaceChildren();
     }
   }
-  return { Renderer, SAMPLE_MESSAGES, imageUrl };
+  return { Renderer, SAMPLE_MESSAGES, imageUrl, appendMessageText };
 });

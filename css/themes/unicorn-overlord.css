@@ -1,0 +1,87 @@
+/* The original image slices are painted together by unicorn-frame.mjs. */
+@font-face {
+    font-family: 'JoseonShinmyeongjo';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@1.1/ChosunSm.woff') format('woff');
+    font-weight: normal;
+    font-display: swap;
+}
+.theme-unicorn-overlord .chat-messages { mask: none; -webkit-mask: none; }
+.theme-unicorn-overlord .chat-message-container {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
+    padding: 0;
+    opacity: 1;
+    filter: none;
+}
+.theme-unicorn-overlord unicorn-frame {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+}
+.theme-unicorn-overlord unicorn-frame canvas { display: block; width: 100%; height: 100%; }
+.theme-unicorn-overlord .chat-message {
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: 100px;
+    padding: 22px 62px 12px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+}
+.theme-unicorn-overlord .message-center { position: relative; width: 100%; min-width: 0; }
+.theme-unicorn-overlord .username {
+    position: absolute;
+    top: -6px;
+    left: 16px;
+    width: 238px;
+    max-width: calc(100% - 32px);
+    height: 42px;
+    display: flex;
+    align-items: center;
+    padding: 0 40px 2px 41px;
+    margin: 0;
+    z-index: 2;
+    line-height: 1;
+    pointer-events: none;
+}
+.theme-unicorn-overlord .username-center {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    color: #f0ebe6;
+    font: 400 20px/1 Pretendard, sans-serif;
+    letter-spacing: -0.5px;
+    text-align: center;
+}
+.theme-unicorn-overlord .username-center > span {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.theme-unicorn-overlord .message {
+    color: #000;
+    font: 600 20px/1.5 JoseonShinmyeongjo, serif;
+    text-align: center;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+/* This frame has no outside rocket decoration. */
+.chat-container.theme-unicorn-overlord { padding: 24px; }
+.theme-unicorn-overlord .chat-messages { padding: 12px 0; }
+.theme-unicorn-overlord.align-left .chat-message-container,
+.theme-unicorn-overlord.align-center .chat-message-container,
+.theme-unicorn-overlord.align-right .chat-message-container { max-width: 80%; }

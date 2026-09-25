@@ -1,34 +1,16 @@
-name: Build on Pull Request
+name: Pull Request Build
+
 on:
   pull_request:
-    branches: [develop, main]
-    paths-ignore: ['**.md']
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            command: npm run build:win
-            artifact: dist/*.exe
-          - os: macos-latest
-            command: npm run build:mac
-            artifact: dist/*.zip
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm test
-      - run: ${{ matrix.command }}
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.os }}
-          path: ${{ matrix.artifact }}
-          retention-days: 7
+    uses: ./.github/workflows/build.yml

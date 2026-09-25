@@ -1,13 +1,13 @@
 (function (root, factory) {
   const config = factory();
   if (typeof module === "object" && module.exports) module.exports = config;
-  else root.StreamDeckConfig = config;
+  root.StreamDeckConfig = config;
 })(typeof globalThis === "object" ? globalThis : this, function () {
   "use strict";
   const THEMES = Object.freeze([
     {
       id: "maplestory",
-      name: "메이플스토리",
+      name: "Maplestory",
       subtitle: "작은 모험이 시작되는 채팅창",
       tag: "NEW",
       color: "#e78738",
@@ -26,7 +26,8 @@
       tag: "FANTASY",
       color: "#b9995b",
     },
-  ]);
+  ].sort((a, b) => ['simple-purple', 'unicorn-overlord', 'maplestory'].indexOf(a.id) - ['simple-purple', 'unicorn-overlord', 'maplestory'].indexOf(b.id))
+    .map(theme => Object.freeze({ ...theme, label: theme.name, description: theme.subtitle })));
   const DEFAULT_SETTINGS = Object.freeze({
     theme: "simple-purple",
     channelId: "",
@@ -96,5 +97,15 @@
     }
     return next;
   }
-  return { THEMES, DEFAULT_SETTINGS, normalizeChannelId, validateSettings };
+  const chatTheme = value => THEMES.some(theme => theme.id === value) ? value : 'simple-purple';
+  function migrateSettings(value) {
+    const next = { ...DEFAULT_SETTINGS };
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (value?.[key] == null) continue;
+      try { Object.assign(next, validateSettings({ [key]: key === 'theme' ? chatTheme(value[key]) : value[key] }, next)); }
+      catch { /* Retain a valid default for a malformed legacy field. */ }
+    }
+    return next;
+  }
+  return { THEMES, DEFAULT_SETTINGS, normalizeChannelId, validateSettings, chatTheme, migrateSettings };
 });

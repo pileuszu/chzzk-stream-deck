@@ -1,24 +1,50 @@
-# This workflow is disabled
-# Builds only run when tags are pushed (see build-release.yml)
-# PR builds are handled by build-pr.yml
-
-name: Build (Disabled)
+name: Windows Build
 
 on:
-  workflow_dispatch:  # Only available for manual runs if needed
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
     inputs:
-      force_build:
-        description: 'Force build (for testing)'
-        required: false
-        default: 'false'
+      ref:
+        type: string
+        default: ''
+      release_tag:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
 
 jobs:
-  disabled:
-    name: Workflow Disabled
-    runs-on: ubuntu-latest
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
-      - name: Info
-        run: |
-          echo "This workflow is disabled."
-          echo "Builds only run on tag push (see build-release.yml)."
-          echo "For PR builds, see build-pr.yml."
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: node scripts/release-artifacts.js --check-version
+      - run: npm ci
+      - name: Test and build both native modules and the portable app
+        run: npm run build:release
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-package
+          path: |
+            dist/release/CHZZK-Stream-Deck-*-win-x64-portable.exe
+            dist/release/SHA256SUMS.txt
+            dist/release/RELEASE-NOTES.md
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

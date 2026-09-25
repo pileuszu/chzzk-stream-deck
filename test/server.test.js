@@ -62,6 +62,7 @@ async function fixture(t) {
 test("server listens, serves dashboard, restricts source files and validates writes", async (t) => {
   const { server, call } = await fixture(t);
   assert.equal((await fetch(server.baseUrl)).status, 200);
+  assert.equal((await fetch(server.baseUrl + '/icon.svg')).status, 200);
   for (const file of [
     "/server.js",
     "/package.json",

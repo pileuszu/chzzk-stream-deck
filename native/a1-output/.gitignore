@@ -1,0 +1,11 @@
+build/
+build-obs/
+build-obs-deps/
+logs/
+*.user
+*.dmp
+__pycache__/
+sender.before-*.ini
+sender.ini
+local-capture.ini
+*.ini.bak
