@@ -10,6 +10,7 @@ class AlignedCapture {
     int fps_;
     int64_t videoIndex_ = 0;
     bool audioStarted_ = false;
+    bool videoEnabled_;
     Tick lastContent_ = 0;
 public:
     std::unique_ptr<Voicemeeter> vm;
@@ -18,10 +19,10 @@ public:
     float peak = 0;
 
     AlignedCapture(const std::filesystem::path& vmPath, int width, int height, int fps,
-                   int monitor, int bufferMs, double audioOffsetMs)
+                   int monitor, int bufferMs, double audioOffsetMs, bool videoEnabled=true)
         : started_(qpc()), epoch_(started_), delay_(bufferMs * ms),
-          offset_(Tick(std::llround(audioOffsetMs * ms))), fps_(fps),
-          vm(std::make_unique<Voicemeeter>(vmPath)), desktop(width,height,fps,monitor,bufferMs) {}
+          offset_(Tick(std::llround(audioOffsetMs * ms))), fps_(fps), videoEnabled_(videoEnabled),
+          vm(std::make_unique<Voicemeeter>(vmPath)), desktop(width,height,fps,monitor,bufferMs,videoEnabled) {}
 
     // Returns false when neither stream is due; caller waits on its stop event.
     // Sinks must consume/copy audio before returning. Video is shared for async NDI.
@@ -40,17 +41,17 @@ public:
             vm->queue.pop(); ++lateAudio;
         }
         Tick vt=frameTime(epoch_,videoIndex_,fps_);
-        if (vt < due-250*ms) {
+        if (videoEnabled_ && vt < due-250*ms) {
             auto next=(due-epoch_)*fps_/second;
             lateVideo += uint64_t(next-videoIndex_); videoIndex_=next;
             vt=frameTime(epoch_,videoIndex_,fps_);
         }
         auto a=vm->queue.peek();
-        if (a && a->time+offset_<=due && a->time+offset_<=vt) {
+        if (a && a->time+offset_<=due && (!videoEnabled_ || a->time+offset_<=vt)) {
             for (int i=0; i<a->count*2; ++i) peak=std::max(peak,std::abs(a->samples[size_t(i)]));
             audioSink(*a,a->time+offset_); ++audioSent; vm->queue.pop(); return true;
         }
-        if (vt<=due) {
+        if (videoEnabled_ && vt<=due) {
             auto pixels=desktop.at(vt);
             if (pixels) {
                 videoSink(pixels,vt); ++videoSent;

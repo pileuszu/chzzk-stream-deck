@@ -389,8 +389,7 @@ app.on('browser-window-created', (_event, window) => {
                 const service=window.outputModuleCards,module=window.deck.registry.get('obs');
                 service.state={...window.workflowBase,local:{...window.workflowBase.local,...${JSON.stringify(patch)}}};
                 service.render(); module.loaded=false;module.dirty=false;window.deck.run('obs');
-                document.getElementById('capture-help').open=false;
-                document.getElementById('capture-diagnostics').open=false;
+                module.info.close();
             })()`);
             const workflowScreen=()=>evaluate(`(() => {
                 const p=document.getElementById('local-capture-panel'),body=p.querySelector('.panel-body');
@@ -404,7 +403,7 @@ app.on('browser-window-created', (_event, window) => {
             await localFixture({installed:false,registered:false,setup:{built:false,obsInstalled:true,initialized:true,available:false}});
             assert.equal((await workflowScreen()).label,'빌드 방법 보기');
             await evaluate("document.getElementById('capture-toggle').click()");
-            assert.equal(await evaluate("document.getElementById('capture-help').open"),true);
+            assert.equal(await evaluate("document.getElementById('capture-help').matches(':popover-open')"),true);
             assert.deepEqual(await evaluate('window.workflowActions'),[]);
             await localFixture({installed:false,registered:false});
             let firstRun=await workflowScreen();
@@ -474,7 +473,7 @@ app.on('browser-window-created', (_event, window) => {
                     pending: overlay.timers.size, background: frame.contentWindow.getComputedStyle(message).backgroundColor };
             })()`);
             const themeBackgrounds = [];
-            for (const theme of ['simple-purple', 'neon-green', 'clean']) {
+            for (const theme of ['simple-purple', 'unicorn-overlord', 'maplestory']) {
                 await setPreview('theme-select', theme); await delay(200);
                 const state = await previewState();
                 assert.equal(state.count, 3); assert.equal(state.nick, '반가...');

@@ -3,7 +3,10 @@ import { DeckController } from './deck.js';
 class App {
     constructor() {
         this.settingsManager = new SettingsManager();
-        this.settingsManager.loadSettings();
+        this.settingsReady = this.settingsManager.loadSettings().catch(error => {
+            this.settingsManager.loadError = error.message;
+            window.deck?.notify('채팅 설정 불러오기 실패: ' + error.message, true);
+        });
         this.settingsManager.updateUI();
         this.uiManager = new UIManager(this);
         this.chatModule = new ChatModule(this.settingsManager);

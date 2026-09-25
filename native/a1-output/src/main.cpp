@@ -82,7 +82,7 @@ void saveStatus(const fs::path& path,const std::string& content) {
 }
 
 int selfTest(const Config& c,int seconds) {
-    std::vector<uint8_t> black(size_t(c.width)*c.height*2),white(black.size());
+    std::vector<uint8_t> black(c.videoEnabled ? size_t(c.width)*c.height*2 : 0),white(black.size());
     for(size_t p=0;p<black.size();p+=4) { black[p]=black[p+2]=white[p]=white[p+2]=128; black[p+1]=black[p+3]=16; white[p+1]=white[p+3]=235; }
     Ndi ndi(c.ndi,c.name+" Test");
     Tick epoch=qpc(), base=unixTime()-epoch;
@@ -101,7 +101,7 @@ int selfTest(const Config& c,int seconds) {
         bool flash=frame>=c.fps && frame%c.fps<c.fps/10;
         NdiVideo v; v.width=c.width;v.height=c.height;v.fpsN=c.fps;v.fourcc=UYVY;v.timecode=base+t;
         v.aspect=float(c.width)/float(c.height);v.data=flash?white.data():black.data();v.stride=c.width*2;
-        ndi.video(&v);
+        if(c.videoEnabled) ndi.video(&v);
     }
     ndi.video(nullptr); return 0;
 }
@@ -109,7 +109,7 @@ int captureOnly(const Config& c,int seconds,const fs::path& logs) {
     // Deliberately does not construct Ndi or load its DLL. No network transmission.
     qpc(); // warm QPC frequency initialization before the realtime callback
     auto vm=std::make_unique<Voicemeeter>(c.vm);
-    Desktop desktop(c.width,c.height,c.fps,c.monitor,c.bufferMs);
+    Desktop desktop(c.width,c.height,c.fps,c.monitor,c.bufferMs,c.videoEnabled);
     Tick start=qpc();uint64_t blocks=0;float peak=0;bool saved=false;
     while(qpc()-start<int64_t(seconds)*second && WaitForSingleObject(stopEvent,0)!=WAIT_OBJECT_0) {
         if(vm->restartNeeded.exchange(false)) vm->restart();
@@ -131,7 +131,7 @@ int captureOnly(const Config& c,int seconds,const fs::path& logs) {
      <<",\"video_captures\":"<<desktop.captures<<",\"width\":"<<c.width<<",\"height\":"<<c.height
      <<",\"capture_error\":"<<jsonString(desktop.error())<<"}\n";
     saveStatus(logs/"capture-probe.json",s.str());std::cout<<s.str();
-    return blocks && saved ? 0:2;
+    return blocks && (saved || !c.videoEnabled) ? 0:2;
 }
 } // namespace
 
@@ -166,14 +166,14 @@ int main(int argc,char** argv) {
         saveStatus(logDir/"status.json","{\"running\":true,\"healthy\":false,\"state\":\"starting\"}\n");
         Tick started=qpc(),utcBase=unixTime()-started;
         std::shared_ptr<VideoFrame> inFlight; // survives NDI's last asynchronous send
-        AlignedCapture capture(c.vm,c.width,c.height,c.fps,c.monitor,c.bufferMs,c.audioOffsetMs);
+        AlignedCapture capture(c.vm,c.width,c.height,c.fps,c.monitor,c.bufferMs,c.audioOffsetMs,c.videoEnabled);
         auto& vm=capture.vm;
         auto& desktop=capture.desktop;
         Ndi ndi(c.ndi,c.name);
         std::unique_ptr<Tray> tray; if(!noTray) tray=std::make_unique<Tray>();
         std::ofstream events;
         if(trace) { events.open(logDir/"frames.csv"); events<<"kind,timecode,submit_qpc,content_qpc,samples,peak\n"; }
-        std::cout<<"NDI source: "<<ndi.sourceName<<"\nA1 post-master, stereo, 1080p target; holdback="<<c.bufferMs
+        std::cout<<"NDI source: "<<ndi.sourceName<<"\nA1 post-master, stereo; mode="<<(c.videoEnabled?"audio_video":"audio_only")<<"; holdback="<<c.bufferMs
                  <<"ms, audio offset="<<c.audioOffsetMs<<"ms\nClock: QPC + recovered VM sample clock; AV offset calibration="
                  <<(c.calibrationVerified?"configured":"NOT VERIFIED")<<std::endl;
         Tick nextReport=started+second,lastReport=started;
@@ -202,14 +202,15 @@ int main(int argc,char** argv) {
                 GetProcessMemoryInfo(GetCurrentProcess(),&pm,sizeof(pm));
                 double cpuPercent=100.0*double(cpu-priorCpu)/double(interval)/GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
                 std::ostringstream s;s<<std::fixed<<std::setprecision(3);
-                bool healthy=vm->lastCallback && now-vm->lastCallback<second && desktop.error().empty() && sentV>0;
+                bool healthy=vm->lastCallback && now-vm->lastCallback<second && sentA>0 && (!c.videoEnabled || (desktop.error().empty() && sentV>0));
                 s<<"{\n  \"running\":true,\n  \"healthy\":"<<(healthy?"true":"false")<<",\n  \"source\":"<<jsonString(ndi.sourceName)
+                 <<",\n  \"output_mode\":"<<jsonString(c.videoEnabled?"audio_video":"audio_only")<<",\"video_enabled\":"<<(c.videoEnabled?"true":"false")
                  <<",\n  \"width\":"<<c.width<<",\"height\":"<<c.height<<",\"fps\":"<<c.fps
                  <<",\n  \"audio_source\":\"Voicemeeter Main Callback / A1 post-master\",\n  \"sample_rate\":"<<vm->sampleRate
                  <<",\"audio_block_samples\":"<<vm->blockSize<<",\"audio_peak\":"<<peak
                  <<",\n  \"buffer_ms\":"<<c.bufferMs<<",\"audio_offset_ms\":"<<c.audioOffsetMs
                  <<",\n  \"clock_mode\":\"qpc_and_recovered_audio_sample_clock\",\"calibration_verified\":"<<(c.calibrationVerified?"true":"false")
-                 <<",\n  \"video_sent\":"<<sentV<<",\"audio_blocks_sent\":"<<sentA<<",\"send_fps\":"<<double(sentV-priorV)*second/double(interval)
+                 <<",\n  \"video_sent\":"<<sentV<<",\"video_captures\":"<<desktop.captures<<",\"audio_blocks_sent\":"<<sentA<<",\"send_fps\":"<<double(sentV-priorV)*second/double(interval)
                  <<",\n  \"video_repeats\":"<<repeatV<<",\"late_video_drops\":"<<lateV<<",\"late_audio_drops\":"<<lateA
                  <<",\n  \"audio_queue_blocks\":"<<vm->queue.size()<<",\"video_queue_frames\":"<<desktop.queued()
                  <<",\"audio_overflows\":"<<vm->overflows<<",\"video_overflows\":"<<desktop.overflows

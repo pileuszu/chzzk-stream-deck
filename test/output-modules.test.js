@@ -75,6 +75,98 @@ test('NDI start and stop use fixed arguments and accept the OBS-build executable
     assert.deepEqual(calls[1][1], ['--stop']);
 });
 
+test('NDI mode saves preserve timing, video settings and local capture; stale or invalid edits fail', async t => {
+    const calls = [], f = fixture(t, [], async (...args) => calls.push(args));
+    const file = path.join(f.root, 'sender.ini');
+    const original = fs.readFileSync(file, 'utf8') + '# keep this\nname=My source\n';
+    f.write(file, original); f.write(path.join(f.root, 'local-capture.ini'), 'fps=60\n');
+    const revision = (await f.controller.status()).ndi.revision;
+    for (const mode of ['video', '', 'audio_only\nname=bad'])
+        await assert.rejects(f.controller.configureNdi({ mode, revision, apply: false }), /올바르지/);
+    await f.controller.configureNdi({ mode: 'audio_only', revision, apply: false });
+    assert.equal(fs.readFileSync(file, 'utf8'), original.trimEnd() + '\noutput_mode=audio_only\n');
+    assert.equal(fs.readFileSync(file + '.bak', 'utf8'), original);
+    assert.equal(fs.readFileSync(path.join(f.root, 'local-capture.ini'), 'utf8'), 'fps=60\n');
+    assert.equal(calls.length, 0, 'saving cannot start transmission');
+    await assert.rejects(f.controller.configureNdi({ mode: 'audio_video', revision, apply: false }), /다른 곳/);
+    assert.equal(f.controller.busy, false);
+});
+
+test('NDI settings allow zero audio-only holdback without changing local settings; reject unsafe drafts before stopping', async t => {
+    const calls = [], f = fixture(t, [], async (...args) => calls.push(args));
+    const file = path.join(f.root, 'sender.ini'), local = path.join(f.root, 'local-capture.ini');
+    f.write(local, 'buffer_ms=500\n');
+    const values = { width: 1280, height: 720, fps: 60, monitor: 1, buffer_ms: 0, audio_offset_ms: 0 };
+    let revision = (await f.controller.status()).ndi.revision;
+    for (const patch of [{ buffer_ms: -1 }, { buffer_ms: 2001 }, { audio_offset_ms: .1 }, { fps: 61 }, { buffer_ms: '0' }, { width: 1281 }, { monitor: 16 }]) {
+        await assert.rejects(f.controller.configureNdi({ mode: 'audio_only', values: { ...values, ...patch }, revision, apply: false }));
+        assert.equal((await f.controller.status()).ndi.revision, revision);
+    }
+    await f.controller.configureNdi({ mode: 'audio_only', values, revision, apply: false });
+    const state = await f.controller.status(); revision = state.ndi.revision;
+    assert.equal(state.ndi.config.buffer_ms, '0'); assert.equal(state.ndi.config.monitor, '1');
+    assert.equal(state.ndi.config.width, '1280'); assert.equal(state.ndi.config.fps, '60');
+    assert.equal(fs.readFileSync(local, 'utf8'), 'buffer_ms=500\n');
+    await assert.rejects(f.controller.configureNdi({ mode: 'audio_video', revision, apply: false }), /200/);
+    f.controller.processes = async () => new Set(['a1-ndi-sender.exe']);
+    f.write(path.join(f.root, 'logs/status.json'), { running: true, healthy: true, output_mode: 'audio_only' });
+    await assert.rejects(f.controller.configureNdi({ mode: 'audio_video', values, revision, apply: true }), /200/);
+    assert.equal(calls.length, 0, 'invalid live edits cannot stop the sender');
+    assert.equal((await f.controller.status()).ndi.revision, revision);
+});
+
+test('mixed native build folders select the newest sender so new modes are supported', t => {
+    const f = fixture(t);
+    const ndiBuild = path.join(f.root, 'build/Release/a1-ndi-sender.exe');
+    const obsBuild = path.join(f.root, 'build-obs/Release/a1-ndi-sender.exe');
+    f.write(ndiBuild, 'old sender');
+    const old = new Date(Date.now() - 60000);
+    fs.utimesSync(ndiBuild, old, old);
+    assert.equal(f.controller.executable(), obsBuild);
+    fs.utimesSync(obsBuild, new Date(0), new Date(0));
+    assert.equal(f.controller.executable(), ndiBuild);
+});
+
+test('NDI apply stops before saving and restarts with the new mode', async t => {
+    const f = fixture(t, ['a1-ndi-sender.exe']), sequence = [];
+    const file = path.join(f.root, 'sender.ini');
+    f.write(path.join(f.root, 'logs/status.json'), { running: true, healthy: true, output_mode: 'audio_video' });
+    f.controller.execute = async (exe) => {
+        if (exe.endsWith('a1-ndi-sender.exe')) {
+            assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /audio_only/);
+            f.controller.processes = async () => new Set(); sequence.push('stop');
+        } else {
+            assert.match(fs.readFileSync(file, 'utf8'), /output_mode=audio_only/);
+            f.controller.processes = async () => new Set(['a1-ndi-sender.exe']);
+            f.write(path.join(f.root, 'logs/status.json'), { running: true, healthy: true, output_mode: 'audio_only' });
+            sequence.push('start');
+        }
+        return {};
+    };
+    await f.controller.configureNdi({ mode: 'audio_only', revision: (await f.controller.status()).ndi.revision, apply: true });
+    assert.deepEqual(sequence, ['stop', 'start']);
+    assert.equal((await f.controller.status()).ndi.output_mode, 'audio_only');
+});
+
+test('failed NDI restart retains saved mode for an explicit retry, failed stop retains original config', async t => {
+    const f = fixture(t, ['a1-ndi-sender.exe']);
+    const file = path.join(f.root, 'sender.ini'), original = fs.readFileSync(file, 'utf8');
+    f.write(path.join(f.root, 'logs/status.json'), { running: true, healthy: true });
+    f.controller.execute = async () => { throw new Error('stop failed'); };
+    const revision = (await f.controller.status()).ndi.revision;
+    await assert.rejects(f.controller.configureNdi({ mode: 'audio_only', revision, apply: true }), /stop failed/);
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
+    f.controller.execute = async exe => {
+        if (exe.endsWith('a1-ndi-sender.exe')) { f.controller.processes = async () => new Set(); return {}; }
+        throw new Error('start failed');
+    };
+    await assert.rejects(f.controller.configureNdi({ mode: 'audio_only', revision, apply: true }), /설정은 저장됐지만/);
+    const state = await f.controller.status();
+    assert.equal(state.ndi.config.output_mode, 'audio_only');
+    assert.equal(state.ndi.running, false);
+    assert.equal(f.controller.busy, false);
+});
+
 test('OBS open does not reopen an active OBS or stop NDI', async t => {
     const calls = [];
     const f = fixture(t, [], async (...args) => { calls.push(args); return {}; });

@@ -32,11 +32,12 @@ class OutputModuleCards {
     }
     action(action) { return this.request('action', action); }
     configure(payload) { return this.request('configure', payload); }
+    configureNdi(payload) { return this.request('configureNdi', payload); }
     async request(method, payload) {
         if (this.busy || !this.api) return;
         this.busy = true;
         this.lastError = '';
-        this.lastErrorScope = method === 'configure' || /local/.test(payload) ? 'local' : '';
+        this.lastErrorScope = method === 'configureNdi' || /ndi/.test(payload) ? 'ndi' : method === 'configure' || /local/.test(payload) ? 'local' : '';
         this.render();
         this.message('처리 중…');
         try {

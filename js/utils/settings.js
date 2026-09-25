@@ -1,133 +1,83 @@
-/**
- * 설정 관리자
- */
+/** Saved chat state is shared through the server; localStorage is migration/cache only. */
 class SettingsManager {
     constructor() {
-        const defaultSettings = window.APP_CONFIG?.DEFAULT_SETTINGS || {
-            chat: {
-                theme: 'simple-purple',
-                channelId: '',
-                maxMessages: 5,
-                alignment: 'default',
-                fadeTime: 0,
-                maxNicknameLength: 5
+        this.settings = { chat: { ...StreamDeckConfig.DEFAULT_SETTINGS } };
+    }
+    async request(method, body) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        try {
+            const response = await fetch('/api/chat/settings', { method, cache: 'no-store', signal: controller.signal,
+                ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || '채팅 설정을 저장하지 못했습니다.');
+            return result;
+        } catch (error) {
+            if (error.name === 'AbortError') throw new Error('채팅 설정 서버가 응답하지 않습니다. 다시 시도해 주세요.');
+            throw error;
+        } finally { clearTimeout(timer); }
+    }
+    async loadSettings() {
+        let legacy;
+        try { legacy = JSON.parse(localStorage.getItem('moduleSettings') || '{}').chat; } catch {}
+        if (!legacy) {
+            legacy = {};
+            for (const [key, storage] of Object.entries(this.storageKeys())) {
+                const value = localStorage.getItem(storage);
+                if (value !== null) legacy[key] = value;
             }
-        };
-        this.settings = defaultSettings;
-    }
-    
-    loadSettings() {
-        const saved = localStorage.getItem('moduleSettings');
-        if (!saved) return;
-        
-        try {
-            const savedSettings = JSON.parse(saved);
-            this.settings = { ...this.settings, ...savedSettings };
-            this.updateUI();
-        } catch (error) {
-            console.error('설정 로드 실패:', error);
         }
+        this.settings.chat = StreamDeckConfig.migrateSettings(legacy);
+        const result = await this.request('GET');
+        const saved = result.initialized ? result : await this.request('POST',
+            { initialize: true, settings: this.settings.chat });
+        this.adopt(saved.settings);
     }
-    
+    adopt(settings) {
+        this.settings.chat = StreamDeckConfig.validateSettings(settings);
+        this.saveSettings();
+        this.updateUI();
+    }
     saveSettings() {
-        try {
-            localStorage.setItem('moduleSettings', JSON.stringify(this.settings));
-        } catch (error) {
-            console.error('설정 저장 실패:', error);
-        }
+        localStorage.setItem('moduleSettings', JSON.stringify(this.settings));
+        this.saveToLocalStorage(this.settings.chat);
     }
-    
-    getModuleSettings(moduleName) {
-        return this.settings[moduleName] || {};
-    }
-    
+    getModuleSettings(moduleName) { return this.settings[moduleName] || {}; }
     updateModuleSettings(moduleName, newSettings) {
-        if (!this.settings[moduleName]) {
-            this.settings[moduleName] = {};
-        }
         this.settings[moduleName] = { ...this.settings[moduleName], ...newSettings };
         this.saveSettings();
     }
-    
     updateUI() {
-        const chatUrlElement = document.getElementById('chat-url');
-        if (chatUrlElement) {
-            // 동적으로 현재 페이지의 origin 사용
-            const baseUrl = window.location.origin;
-            chatUrlElement.value = `${baseUrl}/chat-overlay.html`;
-        }
+        const element = document.getElementById('chat-url');
+        if (element) element.value = window.location.origin + '/chat-overlay.html';
     }
-    
     loadModalSettings(moduleName) {
         if (moduleName !== 'chat') return;
-        
-        const settings = this.settings[moduleName];
-        if (!settings) return;
-        
-        const elements = {
-            'chat-channel-id': settings.channelId,
-            'chat-max-messages': settings.maxMessages,
-            'chat-alignment': settings.alignment,
-            'chat-fade-time': settings.fadeTime,
-            'chat-theme-select': settings.theme,
-            'chat-max-nickname-length': settings.maxNicknameLength || 5
-        };
-        
-        Object.entries(elements).forEach(([id, value]) => {
+        const settings = this.settings.chat;
+        const fields = { 'chat-channel-id': settings.channelId, 'chat-max-messages': settings.maxMessages,
+            'chat-alignment': settings.alignment, 'chat-fade-time': settings.fadeTime,
+            'chat-theme-select': settings.theme, 'chat-max-nickname-length': settings.maxNicknameLength };
+        for (const [id, value] of Object.entries(fields)) {
             const element = document.getElementById(id);
-            if (element) {
-                element.value = value;
-            }
-        });
+            if (element) element.value = value;
+        }
     }
-    
-    saveModalSettings(moduleName) {
+    async saveModalSettings(moduleName) {
         if (moduleName !== 'chat') return;
-        
-        const defaultMaxMessages = window.APP_CONFIG?.CHAT?.DEFAULT_MAX_MESSAGES || 5;
-        const defaultFadeTime = window.APP_CONFIG?.CHAT?.DEFAULT_FADE_TIME || 0;
-        const defaultMaxNicknameLength = window.APP_CONFIG?.CHAT?.DEFAULT_MAX_NICKNAME_LENGTH || 5;
-        
-        const newSettings = {
-            theme: this.getElementValue('chat-theme-select'),
-            channelId: this.getElementValue('chat-channel-id'),
-            maxMessages: parseInt(this.getElementValue('chat-max-messages')) || defaultMaxMessages,
-            alignment: this.getElementValue('chat-alignment'),
-            fadeTime: parseInt(this.getElementValue('chat-fade-time')) || defaultFadeTime,
-            maxNicknameLength: parseInt(this.getElementValue('chat-max-nickname-length')) || defaultMaxNicknameLength
-        };
-        
-        this.updateModuleSettings('chat', newSettings);
-        this.saveToLocalStorage(newSettings);
-        this.updateUI();
+        const value = id => document.getElementById('chat-' + id).value;
+        const settings = StreamDeckConfig.validateSettings({ theme: value('theme-select'), channelId: value('channel-id'),
+            maxMessages: value('max-messages'), alignment: value('alignment'), fadeTime: value('fade-time'),
+            maxNicknameLength: value('max-nickname-length') });
+        const result = await this.request('POST', settings);
+        this.adopt(result.settings);
+        return result.settings;
     }
-    
-    getElementValue(id) {
-        const element = document.getElementById(id);
-        return element ? element.value : '';
+    storageKeys() {
+        return { theme: 'chat-theme', channelId: 'chat-channel-id', maxMessages: 'chat-max-messages',
+            alignment: 'chat-alignment', fadeTime: 'chat-fade-time', maxNicknameLength: 'chat-max-nickname-length' };
     }
-    
     saveToLocalStorage(settings) {
-        // 채팅 오버레이에서 사용할 수 있도록 개별 localStorage 항목으로 저장
-        // 키 매핑 정의 (정확한 키 이름 보장)
-        const keyMapping = {
-            'theme': 'chat-theme',
-            'channelId': 'chat-channel-id',
-            'maxMessages': 'chat-max-messages',
-            'alignment': 'chat-alignment',
-            'fadeTime': 'chat-fade-time',
-            'maxNicknameLength': 'chat-max-nickname-length'
-        };
-        
-        Object.entries(settings).forEach(([key, value]) => {
-            // 키 매핑이 있으면 매핑된 키 사용, 없으면 camelCase를 kebab-case로 변환
-            const storageKey = keyMapping[key] || `chat-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
-            localStorage.setItem(storageKey, String(value));
-            console.log(`설정 저장: ${storageKey} = ${value}`);
-        });
-        
-        // 설정 변경 이벤트 발생 (다른 탭/창에서도 반영되도록)
+        for (const [key, storage] of Object.entries(this.storageKeys())) localStorage.setItem(storage, String(settings[key]));
         window.dispatchEvent(new Event('chatSettingsChanged'));
-        console.log('설정 저장 완료 및 이벤트 발생');
     }
 }

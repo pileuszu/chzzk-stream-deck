@@ -20,7 +20,7 @@ let lifecycle = null;
 function createServer() {
     try {
         console.log('서버 인스턴스 생성 중...');
-        server = new ChzzkStreamDeckServer();
+        server = new ChzzkStreamDeckServer({ settingsPath: path.join(app.getPath('userData'), 'settings.json') });
         
         // 서버 시작 시 에러 처리
         server.serverInstance = server.app.listen(server.port, server.host, () => {
@@ -166,7 +166,7 @@ if (!hasInstanceLock) {
         });
         lifecycle.register('화면·오디오 모듈', () => outputModules.shutdown());
         lifecycle.register('채팅 모듈', () => server.stopChatModule());
-        for (const kind of ['status', 'action', 'configure']) {
+        for (const kind of ['status', 'action', 'configure', 'configureNdi']) {
             ipcMain.handle('output-modules:' + kind, async (event, action) => {
                 if (!isTrustedSender(event, mainWindow, 'http://' + server.host + ':' + server.port)) {
                     throw new Error('출력 모듈은 데스크톱 대시보드에서만 제어할 수 있습니다.');

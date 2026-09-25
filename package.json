@@ -11,7 +11,7 @@
     "build:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
     "build:win:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable --x64 --publish never",
     "build:release": "node scripts/release-artifacts.js --check-version && npm run test:ci && npm run test:registration && npm run build:native && npm run build:win:portable -- --config.directories.output=dist/release && node scripts/release-artifacts.js",
-    "test:ci": "node --test test/output-modules.test.js test/local-setup.test.js test/local-workflow.test.mjs test/deck-modules.test.mjs test/spring.test.mjs test/lifecycle.test.js test/release-artifacts.test.js",
+    "test:ci": "node --test test/output-modules.test.js test/local-setup.test.js test/local-workflow.test.mjs test/deck-modules.test.mjs test/spring.test.mjs test/lifecycle.test.js test/release-artifacts.test.js test/chat-settings.test.js",
     "dist": "electron-builder --publish=never",
     "chat-test": "node test/chzzk-chat-terminal.js",
     "api-test": "node test/chzzk-api-test.js",
@@ -25,7 +25,8 @@
     "test:lifecycle": "node --test test/lifecycle.test.js",
     "test:setup": "node --test test/local-setup.test.js test/local-workflow.test.mjs",
     "test:motion": "node --test test/spring.test.mjs",
-    "test:registration": "python test/obs-registration-test.py"
+    "test:registration": "python test/obs-registration-test.py",
+    "test:chat-overlay": "electron test/smoke-chat-overlay.cjs"
   },
   "keywords": [
     "obs",

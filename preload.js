@@ -3,7 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('outputModules', {
     status: () => ipcRenderer.invoke('output-modules:status'),
     action: action => ipcRenderer.invoke('output-modules:action', action),
-    configure: payload => ipcRenderer.invoke('output-modules:configure', payload)
+    configure: payload => ipcRenderer.invoke('output-modules:configure', payload),
+    configureNdi: payload => ipcRenderer.invoke('output-modules:configureNdi', payload)
 });
 
 contextBridge.exposeInMainWorld('deckWindow', {

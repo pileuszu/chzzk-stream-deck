@@ -137,8 +137,8 @@ struct Capture {
 };
 } // namespace
 
-Desktop::Desktop(int w,int h,int fps,int monitor,int bufferMs): width_(w),height_(h),fps_(fps),monitor_(monitor),
-    limit_(size_t((bufferMs+1000)*fps/1000+4)) { thread_=std::thread(&Desktop::run,this); }
+Desktop::Desktop(int w,int h,int fps,int monitor,int bufferMs,bool enabled): width_(w),height_(h),fps_(fps),monitor_(monitor),
+    limit_(size_t((bufferMs+1000)*fps/1000+4)) { if(enabled) thread_=std::thread(&Desktop::run,this); }
 Desktop::~Desktop() { quit_=true; if(thread_.joinable()) thread_.join(); }
 void Desktop::run() noexcept {
     while(!quit_) {

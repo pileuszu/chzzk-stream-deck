@@ -36,7 +36,11 @@ export const panel = {
 </div>
 <p id="capture-connection-note" class="capture-connection-note" role="status" hidden></p>
 <div class="capture-extras">
-<details id="capture-help" class="advanced-details capture-help"><summary id="capture-help-title">OBS에서 방송하는 방법</summary>
+<button type="button" id="capture-help-button" class="info-trigger" data-info-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="capture-help"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.2"/></svg><span id="capture-help-label">OBS에서 방송하는 방법</span></button>
+<button type="button" id="capture-diagnostics-button" class="info-trigger" data-info-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="capture-diagnostics"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.2"/></svg><span>연결·진단 정보</span></button>
+<section id="capture-help" class="info-popover capture-help" popover="auto" role="dialog" tabindex="-1" aria-labelledby="capture-help-title">
+<header class="info-popover-heading"><h3 id="capture-help-title">OBS에서 방송하는 방법</h3><button type="button" data-info-close aria-label="도움말 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></header>
+<div class="info-popover-body">
 <div id="capture-install-guide" hidden>
 <ol><li>OBS Studio 32.0.1 x64를 설치합니다. 연결 도구를 처음 설치하거나 업데이트할 때는 OBS를 종료해 주세요.</li><li>Voicemeeter A1에서 마이크·기타·컴퓨터 소리가 들리는지 확인합니다.</li><li>클론한 경우 <code>npm ci</code> → <code>npm run build:native</code> → <code>npm run app</code> 순서로 실행합니다. 빌드에는 VS 2022 C++ Build Tools·Windows SDK·CMake가 필요합니다.</li><li><b>OBS 연결 준비</b> 후 <b>OBS 열고 연결</b>을 누르세요. 현재 장면에 소스를 자동으로 만듭니다. Python 설치나 장면 모음 선택은 필요하지 않습니다.</li></ol>
 <p>플러그인 설치 권한 오류가 나면 모듈 폴더의 <code>Install-OBSPlugin.ps1</code>만 관리자 PowerShell에서 실행한 뒤 앱에서 다시 준비하세요. 장면 등록은 현재 사용자 계정으로 진행합니다.</p>
@@ -48,12 +52,14 @@ export const panel = {
 <p>이 패널의 <b>전달 중지</b>는 캡처 공급을 끕니다. 방송·녹화를 끝내려면 OBS에서 각각 중지하세요. 중복되는 데스크톱·마이크 오디오 소스는 꺼두세요.</p>
 <button type="button" class="secondary-button" data-local-action="open-obs">OBS 열기</button>
 </div>
-</details>
-<details id="capture-diagnostics" class="advanced-details"><summary>연결·진단 정보</summary>
+</div></section>
+<section id="capture-diagnostics" class="info-popover" popover="auto" role="dialog" tabindex="-1" aria-labelledby="capture-diagnostics-title">
+<header class="info-popover-heading"><h3 id="capture-diagnostics-title">연결·진단 정보</h3><button type="button" data-info-close aria-label="진단 정보 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></header>
+<div class="info-popover-body">
 <p id="capture-live-video"></p><p id="capture-live-audio"></p>
 <dl class="signal-list"><div><dt>실제 FPS / 누락</dt><dd id="capture-live-fps">—</dd></div><div><dt>버퍼 / 보정</dt><dd id="capture-live-sync">—</dd></div></dl>
 <p id="capture-path"></p><p id="capture-error"></p><p>원본 비율을 유지합니다. OBS 출력 해상도·FPS는 OBS에서 설정하세요. 실제 화면·소리 시간차는 측정 후 보정하세요.</p>
-</details></div>
+</div></section></div>
 </div>
 <div id="capture-save-line" class="capture-save-line"><span id="capture-draft-state" role="status">저장된 설정</span><span id="capture-apply-note">다음 전달 시작에 적용됩니다.</span></div>
 <footer class="panel-footer"><button type="button" id="capture-toggle" class="primary-button">OBS로 전달 시작</button><button type="button" id="capture-stop" class="text-button" data-local-action="stop-local" hidden>전달 중지</button><div id="capture-save-actions" class="footer-actions"><button type="button" id="capture-reload" class="text-button" title="편집 내용을 버리고 저장된 설정을 불러옵니다">되돌리기</button><button type="submit" id="capture-save" class="secondary-button" value="save">저장</button><button type="submit" id="capture-apply" class="primary-button" value="apply">저장 후 적용</button></div><button type="button" id="capture-check-again" class="text-button" hidden>준비 상태 확인</button></footer>

@@ -1,20 +1,19 @@
 $ErrorActionPreference = 'Stop'
-$senderExe = Join-Path $PSScriptRoot 'build\Release\a1-ndi-sender.exe'
-if (-not (Test-Path -LiteralPath $senderExe)) {
-    $obsBuildExe = Join-Path $PSScriptRoot 'build-obs\Release\a1-ndi-sender.exe'
-    if (Test-Path -LiteralPath $obsBuildExe) { $senderExe = $obsBuildExe }
-}
+$senderExe = @('build\Release\a1-ndi-sender.exe', 'build-obs\Release\a1-ndi-sender.exe') |
+    ForEach-Object { Get-Item -LiteralPath (Join-Path $PSScriptRoot $_) -ErrorAction SilentlyContinue } |
+    Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1 -ExpandProperty FullName
 $senderProcesses = Get-Process -Name 'a1-ndi-sender' -ErrorAction SilentlyContinue
 if ($senderProcesses) { Write-Host 'A1 NDI Sender is already running. No second sender was started.'; exit 0 }
 if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'sender.ini'))) {
     throw 'sender.ini is missing. Restore it from the repository before starting.'
 }
-if (-not (Test-Path -LiteralPath $senderExe)) {
+if (-not $senderExe) {
     if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
         throw 'First build requires CMake 3.24+ and Visual Studio 2022 C++ Build Tools with Windows SDK. See README.md.'
     }
     Write-Host 'First run: building the sender and running its tests...'
     & (Join-Path $PSScriptRoot 'build.ps1')
+    $senderExe = Join-Path $PSScriptRoot 'build\Release\a1-ndi-sender.exe'
     if (-not (Test-Path -LiteralPath $senderExe)) { throw 'Build did not produce the sender executable.' }
 }
 New-Item -ItemType Directory -Path "$PSScriptRoot\logs" -Force | Out-Null

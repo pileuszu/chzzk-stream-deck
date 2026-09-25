@@ -109,7 +109,7 @@ class LocalSource {
             WinHandle singleton{CreateMutexW(nullptr,FALSE,L"Local\\A1NdiSender.Instance")};
             if(!singleton.value || GetLastError()==ERROR_ALREADY_EXISTS)
                 throw std::runtime_error("A1 capture is in use. Stop the standalone sender or the other A1 OBS source, then apply properties again.");
-            config_=config(configPath_);
+            config_=config(configPath_,true);
             // Present the already-held timeline at OBS's current epoch. The same
             // constant moves BOTH streams; it neither adds another wait nor changes
             // their relative offset. Old absolute timestamps can be rejected by

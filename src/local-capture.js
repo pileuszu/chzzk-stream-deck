@@ -19,7 +19,7 @@ function atomicWrite(file, text) {
     try { fs.writeFileSync(temporary, text, 'utf8'); fs.renameSync(temporary, file); }
     finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
 }
-function validateSettings(values) {
+function validateSettings(values, { audioOnly = false } = {}) {
     if (!values || typeof values !== 'object' || Array.isArray(values) ||
         Object.keys(values).length !== KEYS.length || Object.keys(values).some(key => !KEYS.includes(key))) {
         throw new Error('화면·싱크 설정 항목이 올바르지 않습니다.');
@@ -33,8 +33,8 @@ function validateSettings(values) {
         throw new Error('해상도는 320×180부터 3840×2160까지, 가로는 짝수로 입력하세요.');
     if (fps < 15 || fps > 60 || monitor < 0 || monitor > 15)
         throw new Error('프레임은 15~60 FPS, 화면 번호는 1~16 범위여야 합니다.');
-    if (buffer < 200 || buffer > 2000 || Math.abs(offset) > buffer - 100)
-        throw new Error('버퍼는 200~2000 ms, 오디오 보정의 절댓값은 버퍼보다 최소 100 ms 작아야 합니다.');
+    if (buffer < (audioOnly ? 0 : 200) || buffer > 2000 || Math.abs(offset) > buffer - (audioOnly ? 0 : 100))
+        throw new Error(audioOnly ? '소리만 모드의 버퍼는 0~2000 ms, 오디오 보정의 절댓값은 버퍼 이하여야 합니다.' : '화면 + 소리 버퍼는 200~2000 ms, 오디오 보정의 절댓값은 버퍼보다 최소 100 ms 작아야 합니다.');
     return { ...values };
 }
 function updateConfig(text, values) {

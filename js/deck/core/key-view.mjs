@@ -19,6 +19,7 @@ export class KeyView {
         key.title = model.title || model.label;
         key.setAttribute('aria-label', model.ariaLabel || model.label);
         key.classList.toggle('is-active', Boolean(model.active));
+        key.classList.toggle('is-inactive', model.active === false && !model.empty);
         key.classList.toggle('is-empty', Boolean(model.empty));
         for (const field of ['label', 'state', 'caption']) {
             const element = key.querySelector('.key-' + field);

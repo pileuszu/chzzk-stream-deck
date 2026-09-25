@@ -4,3 +4,7 @@ body.is-chat-preview .chat-messages { padding: 18px 14px 14px 22px; gap: 8px; }
 body.is-chat-preview .chat-message-container { flex-shrink: 0; }
 body.is-preview-still .chat-message-container { animation: none !important; }
 body.is-preview-still .chat-message { opacity: 1; transform: none; }
+body.is-chat-preview .chat-container.theme-unicorn-overlord,
+body.is-chat-preview .chat-container.theme-maplestory { padding: 8px 12px 10px; }
+body.is-chat-preview .theme-unicorn-overlord .chat-messages,
+body.is-chat-preview .theme-maplestory .chat-messages { padding: 18px 4px 14px; }

@@ -6,9 +6,10 @@ function stageNative() {
     const root = path.resolve(__dirname, '..');
     const source = path.join(root, 'native', 'a1-output');
     const target = path.join(root, 'native-runtime');
-    // build:native builds both outputs together; prefer that binary over an older NDI-only build.
+    // Either build command can update the sender; never package an older executable.
     const exe = ['build-obs/Release/a1-ndi-sender.exe', 'build/Release/a1-ndi-sender.exe']
-        .find(file => fs.existsSync(path.join(source, file)));
+        .filter(file => fs.existsSync(path.join(source, file)))
+        .sort((a, b) => fs.statSync(path.join(source, b)).mtimeMs - fs.statSync(path.join(source, a)).mtimeMs)[0];
     const plugin = 'build-obs/Release/a1-local-source.dll';
     if (!exe || !fs.existsSync(path.join(source, plugin))) {
         throw new Error('Build both native modules before packaging: npm run build:native');

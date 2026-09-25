@@ -24,7 +24,7 @@ class Desktop {
     void run() noexcept;
 public:
     std::atomic<uint64_t> captures{0}, overflows{0}, reconnects{0};
-    Desktop(int width, int height, int fps, int monitor, int bufferMs);
+    Desktop(int width, int height, int fps, int monitor, int bufferMs, bool enabled=true);
     ~Desktop();
     std::shared_ptr<VideoFrame> at(Tick timestamp);
     size_t queued() const;

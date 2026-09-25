@@ -64,7 +64,8 @@ class OutputModules {
 
     executable() {
         return ['build/Release/a1-ndi-sender.exe', 'build-obs/Release/a1-ndi-sender.exe']
-            .map(file => path.join(this.root, file)).find(file => fs.existsSync(file));
+            .map(file => path.join(this.root, file)).filter(file => fs.existsSync(file))
+            .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
     }
 
     status() {
@@ -102,6 +103,7 @@ class OutputModules {
         return {
             supported: true, busy: this.busy || Boolean(this.closing), processError, root: this.root,
             ndi: { ...ndi, processRunning: ndiProcess, built: Boolean(this.executable()),
+                revision: localCapture.snapshot(path.join(this.root, 'sender.ini')).revision,
                 config: readConfig(path.join(this.root, 'sender.ini')) },
             local: { ...local, processRunning: obsProcess, registered,
                 installed, setup: this.setupInfo(registered, installed), configPath: editFile, directory,
@@ -244,6 +246,55 @@ class OutputModules {
         const reply = await this.control(running ? 'start' : 'stop', state.local.configPath);
         if (running || reply.source_present) await localCapture.waitForCapture(directory, running, state.local.config, { requestId: reply.request_id });
         return { message: running ? '현재 OBS 장면에 화면과 A1 오디오를 연결했습니다. 방송·녹화는 OBS에서 시작하세요.' : '로컬 캡처를 중지했습니다.' };
+    }
+
+    async configureNdi(payload) {
+        if (this.platform !== 'win32') throw new Error('NDI 송신은 Windows에서 사용할 수 있습니다.');
+        if (this.closing) throw new Error('앱을 종료하는 중입니다.');
+        if (this.busy) throw new Error('이전 작업이 끝날 때까지 기다려 주세요.');
+        if (!payload || !['audio_video', 'audio_only'].includes(payload.mode) ||
+            typeof payload.revision !== 'string' || typeof payload.apply !== 'boolean' ||
+            Object.keys(payload).some(key => !['mode', 'values', 'revision', 'apply'].includes(key)))
+            throw new Error('NDI 전송 대상 설정이 올바르지 않습니다.');
+        this.busy = true;
+        try {
+            const state = await this.readState();
+            if (state.processError) throw new Error(state.processError);
+            if (payload.apply && (!state.ndi.processRunning || !state.ndi.running || state.local.running))
+                throw new Error('실행 중인 NDI 송신기를 확인한 뒤 다시 적용하세요.');
+            const file = path.join(this.root, 'sender.ini'), current = localCapture.snapshot(file);
+            if (!current.revision || current.revision !== payload.revision)
+                throw new Error('다른 곳에서 설정이 변경됐습니다. 되돌리기로 불러온 뒤 다시 선택하세요.');
+            const defaults = { width: 1920, height: 1080, fps: 60, monitor: 0, buffer_ms: 500, audio_offset_ms: 0 };
+            const values = localCapture.validateSettings(payload.values === undefined ? Object.fromEntries(
+                Object.entries(defaults).map(([key, fallback]) => [key, Number(state.ndi.config[key] ?? fallback)])
+            ) : payload.values, { audioOnly: payload.mode === 'audio_only' });
+            // Stop first: a failed stop must not silently change the saved mode.
+            if (payload.apply) await this.stopNdi();
+            const expression = /^\s*output_mode\s*=.*$/gm;
+            const line = 'output_mode=' + payload.mode;
+            const settings = payload.values === undefined ? current.text : localCapture.updateConfig(current.text, values);
+            const next = expression.test(settings) ? settings.replace(expression, line) : settings.trimEnd() + '\n' + line + '\n';
+            localCapture.atomicWrite(file + '.bak', current.text);
+            localCapture.atomicWrite(file, next);
+            if (payload.apply) {
+                try { await this.runScript('Start-Sender.ps1'); await this.waitForNdi(payload.mode, payload.values === undefined ? undefined : values); }
+                catch (error) { throw new Error('설정은 저장됐지만 송출 재시작을 확인하지 못했습니다. 송출 시작으로 다시 시도하세요. ' + (error.stderr?.trim() || error.message)); }
+            }
+            return { message: payload.apply ? 'NDI 설정을 저장하고 송출에 적용했습니다.' : 'NDI 설정을 저장했습니다. 다음 송출에 적용됩니다.' };
+        } finally { this.busy = false; }
+    }
+
+    async waitForNdi(mode, values) {
+        const deadline = Date.now() + 6000;
+        do {
+            const state = await this.readState();
+            if (state.ndi.running && state.ndi.healthy && state.ndi.output_mode === mode &&
+                (!values || ['width', 'height', 'fps', 'buffer_ms', 'audio_offset_ms'].every(key => Number(state.ndi[key]) === values[key]))) return;
+            if (!state.ndi.processRunning) throw new Error(state.ndi.error || 'NDI 송신기가 종료됐습니다.');
+            await new Promise(resolve => setTimeout(resolve, 200));
+        } while (Date.now() < deadline);
+        throw new Error('새 전송 모드의 상태 갱신이 지연되고 있습니다.');
     }
 
     async configure(payload) {

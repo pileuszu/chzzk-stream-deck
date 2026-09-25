@@ -29,8 +29,7 @@ await evaluate('document.fonts.ready.then(()=>true)');await delay(100);
                 const service=window.outputModuleCards,module=window.deck.registry.get('obs');
                 service.state={...window.workflowBase,local:{...window.workflowBase.local,...${JSON.stringify(patch)}}};
                 service.render(); module.loaded=false;module.dirty=false;window.deck.run('obs');
-                document.getElementById('capture-help').open=false;
-                document.getElementById('capture-diagnostics').open=false;
+                module.info.close();
             })()`);
             const workflowScreen=()=>evaluate(`(() => {
                 const p=document.getElementById('local-capture-panel'),body=p.querySelector('.panel-body');
@@ -44,7 +43,7 @@ await evaluate('document.fonts.ready.then(()=>true)');await delay(100);
             await localFixture({installed:false,registered:false,setup:{built:false,obsInstalled:true,initialized:true,available:false}});
             assert.equal((await workflowScreen()).label,'빌드 방법 보기');
             await evaluate("document.getElementById('capture-toggle').click()");
-            assert.equal(await evaluate("document.getElementById('capture-help').open"),true);
+            assert.equal(await evaluate("document.getElementById('capture-help').matches(':popover-open')"),true);
             assert.deepEqual(await evaluate('window.workflowActions'),[]);
             await localFixture({installed:false,registered:false});
             let firstRun=await workflowScreen();
@@ -54,6 +53,49 @@ await evaluate('document.fonts.ready.then(()=>true)');await delay(100);
             await evaluate("document.getElementById('capture-toggle').click()");
             assert.deepEqual(await evaluate('window.workflowActions'),['setup-local']);
             await localFixture({}); await capture('local-ready');
+            // Help floats above the workspace at both supported compact sizes.
+            const geometry=()=>evaluate(`(() => {
+                const p=document.getElementById('local-capture-panel'),b=p.querySelector('.panel-body');
+                return [b.clientHeight,b.scrollHeight,b.scrollTop,p.querySelector('.panel-footer').getBoundingClientRect().top];
+            })()`);
+            const isOpen=id=>evaluate(`document.getElementById('${id}').matches(':popover-open')`);
+            for (const [width,height] of [[640,440],[600,420]]) {
+                window.setSize(width,height);await delay(80);
+                const baseline=await geometry();
+                assert.ok(baseline[1]<=baseline[0]+1,'compact settings fit without a scrollbar');
+                for (const id of ['capture-help','capture-diagnostics']) {
+                    await evaluate(`document.getElementById('${id}-button').click()`);
+                    assert.equal(await isOpen(id),true);
+                    assert.deepEqual(await geometry(),baseline,'opening help cannot expand or scroll the settings');
+                    assert.equal(await evaluate(`document.getElementById('${id}-button').getAttribute('aria-expanded')`),'true');
+                    const rect=await evaluate(`(() => {const r=document.getElementById('${id}').getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom};})()`);
+                    assert.ok(rect.left>=0&&rect.top>=0&&rect.right<=width&&rect.bottom<=height,'popover stays within the window');
+                    assert.equal(await evaluate("document.querySelectorAll(':popover-open').length"),1);
+                    await window.webContents.capturePage();await delay(150);
+                    await capture(`local-${id}-${width}`);
+                }
+                window.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});
+                window.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});await delay(50);
+                assert.equal(await isOpen('capture-diagnostics'),false);
+                assert.equal(await evaluate("document.activeElement.id"),'capture-diagnostics-button');
+                assert.equal(await evaluate("document.getElementById('capture-diagnostics-button').getAttribute('aria-expanded')"),'false');
+                await evaluate("document.getElementById('capture-help-button').click()");
+                window.webContents.sendInputEvent({type:'mouseDown',x:580,y:405,button:'left',clickCount:1});
+                window.webContents.sendInputEvent({type:'mouseUp',x:580,y:405,button:'left',clickCount:1});await delay(50);
+                assert.equal(await isOpen('capture-help'),false,'outside click dismisses help');
+                await evaluate("document.getElementById('capture-help-button').click();document.querySelector('#capture-help [data-info-close]').click()");
+                assert.equal(await isOpen('capture-help'),false);
+                assert.equal(await evaluate("document.activeElement.id"),'capture-help-button');
+                const point=await evaluate("(() => {const r=document.getElementById('capture-help-button').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};})()");
+                for (const expected of [true,false]) {
+                    window.webContents.sendInputEvent({type:'mouseDown',...point,button:'left',clickCount:1});
+                    window.webContents.sendInputEvent({type:'mouseUp',...point,button:'left',clickCount:1});await delay(40);
+                    assert.equal(await isOpen('capture-help'),expected,'same info button toggles with real pointer input');
+                }
+                await evaluate("document.getElementById('capture-help-button').click();window.deck.goHome()");
+                assert.equal(await isOpen('capture-help'),false,'leaving the module closes its help');
+                await localFixture({});
+            }
             assert.equal((await workflowScreen()).label,'OBS 열고 연결');
             await evaluate("document.getElementById('capture-toggle').click()");
             assert.deepEqual(await evaluate('window.workflowActions'),['setup-local','start-local']);

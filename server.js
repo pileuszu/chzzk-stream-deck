@@ -12,6 +12,8 @@ const { stopChild } = require('./src/stop-child');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const ChatSettingsStore = require('./src/chat-settings-store');
+const os = require('node:os');
 
 // 설정 파일 로드
 function loadConfig() {
@@ -81,7 +83,8 @@ function loadConfig() {
 const config = loadConfig();
 
 class ChzzkStreamDeckServer {
-    constructor() {
+    constructor({ settingsPath = path.join(process.env.CHZZK_DATA_DIR || path.join(process.env.APPDATA || os.homedir(), 'chzzk-stream-deck'), 'settings.json') } = {}) {
+        this.chatSettings = new ChatSettingsStore(settingsPath);
         this.app = express();
         this.port = process.env.PORT || config.port;
         this.host = config.host;
@@ -226,6 +229,22 @@ class ChzzkStreamDeckServer {
         // 채팅 메시지 조회
         this.app.get('/api/chat/messages', (req, res) => this.getChatMessages(req, res));
         
+        // OBS has separate browser storage; all consumers use this persisted state.
+        this.app.get('/api/chat/settings', (req, res) => {
+            res.set('Cache-Control', 'no-store').json({ success: true, settings: this.chatSettings.get(), initialized: this.chatSettings.initialized });
+        });
+        this.app.post('/api/chat/settings', (req, res) => {
+            try {
+                const origin = req.get('origin');
+                if (origin && origin !== `${req.protocol}://${req.get('host')}`) return res.status(403).json({ success: false, error: '앱에서 설정을 저장해 주세요.' });
+                if (!req.is('application/json')) return res.status(415).json({ success: false, error: 'JSON 설정이 필요합니다.' });
+                const settings = this.chatSettings.update(req.body.initialize === true ? req.body.settings : req.body,
+                    { initialize: req.body.initialize === true });
+                for (const client of this.sseConnections) this.sendChatSettings(client);
+                res.json({ success: true, settings, initialized: true });
+            } catch (error) { res.status(400).json({ success: false, error: error.message }); }
+        });
+
         // 채팅 모듈 제어
         this.app.post('/api/chat/:action', (req, res) => this.handleChatAction(req, res));
         
@@ -248,6 +267,7 @@ class ChzzkStreamDeckServer {
         
         // 연결 추가
         this.sseConnections.add(res);
+        this.sendChatSettings(res);
         
         // 기존 메시지 전송 (최근 메시지)
         const recentMessages = this.chatMessages.slice(-this.CONFIG.RECENT_MESSAGES_COUNT);
@@ -268,6 +288,11 @@ class ChzzkStreamDeckServer {
     /**
      * 채팅 메시지 조회
      */
+    sendChatSettings(res) {
+        try { if (!res.destroyed) res.write(`event: settings\ndata: ${JSON.stringify(this.chatSettings.get())}\n\n`); }
+        catch { this.sseConnections.delete(res); }
+    }
+
     getChatMessages(req, res) {
         const limit = parseInt(req.query.limit) || 20;
         const messages = this.chatMessages.slice(-limit);

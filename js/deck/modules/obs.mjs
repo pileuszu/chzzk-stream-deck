@@ -1,6 +1,7 @@
 import { OutputDeckModule } from './output.mjs';
 import { panel } from './obs-panel.mjs';
 import { localWorkflow } from './local-workflow.mjs';
+import { InfoPopovers } from '../core/info-popovers.mjs';
 
 export class ObsDeckModule extends OutputDeckModule {
     constructor() {
@@ -12,6 +13,7 @@ export class ObsDeckModule extends OutputDeckModule {
     }
     bind(context) {
         this.element = document.getElementById(this.panel.id);
+        this.info = new InfoPopovers(this.element, this.listeners.signal);
         this.form = document.getElementById('local-capture-form');
         this.fields = Object.fromEntries(['resolution', 'width', 'height', 'fps', 'monitor', 'buffer', 'offset'].map(key => [key, document.getElementById('capture-' + key)]));
         const edit = () => {
@@ -38,6 +40,7 @@ export class ObsDeckModule extends OutputDeckModule {
         context.deck.currentOutput = this.id;
         if (!this.loaded || !this.dirty) this.load(context);
     }
+    onLeave() { this.info.close(); }
     values() {
         return { width: Number(this.fields.width.value), height: Number(this.fields.height.value),
             fps: Number(this.fields.fps.value), monitor: Number(this.fields.monitor.value) - 1,
@@ -113,9 +116,7 @@ export class ObsDeckModule extends OutputDeckModule {
         if (flow.action === 'initialize') return this.performAction('open-obs-setup', context);
         if (flow.action === 'refresh') return context.outputs.refresh();
         if (flow.action === 'ndi') return context.deck.run('ndi');
-        const help = document.getElementById('capture-help');
-        help.open = true; help.querySelector('summary').focus({ preventScroll: true });
-        help.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        this.info.open('capture-help');
     }
     connectionError(context) {
         return context.outputs?.lastErrorScope === 'local' ? context.outputs.lastError : '';
@@ -127,7 +128,7 @@ export class ObsDeckModule extends OutputDeckModule {
         const running = Boolean(local?.running);
         const flow = localWorkflow(state, { dirty: this.dirty, busy: context.outputs?.busy || state?.busy, error: this.connectionError(context) });
         if (this.prepared === false && flow.prepared) {
-            document.getElementById('capture-help').open = false;
+            this.info.close();
             this.element.querySelector('.panel-body').scrollTop = 0;
         }
         this.prepared = flow.prepared;
@@ -150,8 +151,10 @@ export class ObsDeckModule extends OutputDeckModule {
         document.getElementById('capture-check-again').disabled = flow.disabled;
         document.getElementById('capture-install-guide').hidden = !flow.setup;
         document.getElementById('capture-broadcast-guide').hidden = flow.setup;
-        document.getElementById('capture-diagnostics').hidden = flow.setup;
+        document.getElementById('capture-diagnostics-button').hidden = flow.setup;
+        if (flow.setup && document.getElementById('capture-diagnostics').matches(':popover-open')) this.info.close();
         this.text('capture-help-title', flow.setup ? '설치·연결 방법' : 'OBS에서 방송하는 방법');
+        this.text('capture-help-label', flow.setup ? '설치·연결 방법' : 'OBS에서 방송하는 방법');
         this.text('capture-obs-activity', local?.controlAvailable ? local.streaming ? '방송 중' : local.recording ? '녹화 중' : '방송 대기' : '');
         for (const step of this.element.querySelectorAll('[data-capture-step]')) {
             const index = Number(step.dataset.captureStep), done = index < flow.step || (index === 2 && flow.streaming);

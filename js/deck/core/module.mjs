@@ -47,10 +47,12 @@ export class DeckModule {
     keyModel(context, slot) {
         const state = this.getState(context);
         const editing = context.deck.editing && this.assignable;
+        const stateLabel = state.state ?? (typeof state.active === 'boolean' ? (state.active ? 'ON' : 'OFF') : '');
         return {
             label: this.label, icon: this.icon, accent: this.accent, tint: this.tint,
             title: this.description, ...state,
-            state: state.state ?? (state.active ? 'ON' : ''),
+            state: stateLabel,
+            ariaLabel: state.ariaLabel ?? this.label + (stateLabel ? ' · ' + stateLabel : ''),
             ...(editing ? { ariaLabel: this.label + ' 위치 편집', title: this.label + ' · 드래그하여 이동 · Space로 선택' } : {})
         };
     }

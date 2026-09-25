@@ -8,12 +8,16 @@ const FIELDS = { theme: 'theme-select', channelId: 'channel-id', maxMessages: 'm
 export class ChatDeckModule extends DeckModule {
     constructor() { super({ id: 'chat', label: 'CHZZK 채팅', icon: 'chat', accent: '#c3a5ff', tint: '#3a2c51', eyebrow: 'CHAT MODULE', description: '채팅 연결과 표시 설정을 미리보기와 함께 관리합니다.', panel }); }
     getState({ app }) { return { active: app.chatModule.isActive }; }
-    onEnter({ app }) {
+    async onEnter({ app, deck }) {
+        await app.settingsReady;
+        await app.chatModule.checkInitialStatus();
+        if (deck.view !== this.id) return;
         app.uiManager.currentModule = this.id;
         document.getElementById('chat-channel-id').setCustomValidity('');
         app.settingsManager.loadModalSettings(this.id);
         app.settingsManager.updateUI();
         this.preview.sync();
+        this.refresh({ app });
     }
     onLeave({ app }) { this.preview.suspend(); app.uiManager.currentModule = null; }
     bind(context) {
@@ -41,7 +45,9 @@ export class ChatDeckModule extends DeckModule {
             const input = document.getElementById('chat-channel-id');
             input.setCustomValidity(input.value ? '' : '연결할 CHZZK 채널 ID를 입력해 주세요.');
             if (!document.getElementById('chat-settings-form').reportValidity()) return;
-            app.settingsManager.saveModalSettings(this.id);
+            app.chatBusy = true; context.deck.update();
+            try { await app.settingsManager.saveModalSettings(this.id); }
+            finally { app.chatBusy = false; context.deck.update(); }
         }
         await app.toggleChat(); this.refresh(context);
     }

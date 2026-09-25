@@ -296,13 +296,13 @@ Create or modify the `config.json` file in the project root to configure server 
 
 ## Theme System
 
-### Simple Purple
-- Purple gradient background (#667eea, #764ba2)
-- Advanced animation effects
-- Hover effects and transitions
-- Multi-layer shadows and glow effects
+채팅 테마는 **Simple Purple**, **Unicorn Overlord**, **Maplestory** 세 가지입니다. 로켓·별, Unicorn 프레임 이미지, 단풍잎 장식을 사용합니다. Maplestory 테마는 크림색 말풍선과 단풍잎으로 구성합니다. 미리보기와 OBS 오버레이는 같은 테마 파일을 렌더링합니다.
 
-This is the default supported theme.
+Unicorn 프레임은 원본 이미지 조각을 하나의 캔버스에 이어 그립니다. 접합점을 실제 픽셀 경계에 맞춰 미리보기 축소 시 틈을 방지하고, 처음 표시되거나 크기가 바뀔 때만 다시 그립니다. 이름표는 본문 프레임 상단에 겹쳐 표시됩니다.
+
+테마를 선택하면 먼저 미리보기에만 반영됩니다. **설정 저장**을 누르면 서버의 사용자 설정 파일에 저장하고 연결된 OBS 브라우저 소스에 즉시 전달합니다. 채팅 연결 해제·재연결이나 앱 재실행 후에도 저장한 테마를 유지합니다. 저장 실패 시 편집값을 유지하므로 같은 버튼으로 다시 저장할 수 있습니다.
+
+OBS 주소는 `/chat-overlay.html`을 사용합니다. 앱과 OBS는 서로 다른 브라우저 저장소를 쓰므로 테마 적용에 localStorage 공유를 요구하지 않습니다. 이전 앱의 설정은 첫 실행에 한 번 이전하며, 잘못 추가됐던 Clean·Neon Green 선택값은 Simple Purple로 정리합니다.
 
 ## Troubleshooting
 
@@ -406,3 +406,13 @@ For technical support and bug reports, please create an issue in the repository.
 ### 로컬 캡처 설정과 실행 제어
 
 **로컬 캡처** 패널에서 화면·오디오·싱크 설정을 편집하고 캡처를 시작·중지합니다. **저장**은 다음 시작용 설정만 저장하고, 실행 중 **저장 후 적용**은 소스를 재시작해 반영합니다. NDI 설정과 분리된 local-capture.ini를 사용합니다. [사용법과 기존 설치 갱신 안내](docs/LOCAL-CAPTURE.md)를 참고하세요.
+
+### NDI 전송 대상 선택
+
+**NDI 송신 → 전송 대상**에서 **화면 + 소리** 또는 **소리만**을 선택합니다. 중지 상태에서는 **설정 저장** 후 시작하거나 **저장하고 송출**을 누르세요. 실행 중에는 **변경 적용**으로 송신기를 잠시 재시작합니다. 재시작이 실패해도 저장된 모드는 유지되며 **송출 시작**으로 다시 시도할 수 있습니다.
+
+같은 패널에서 시작 전에 해상도·FPS·화면 번호·전송 버퍼·오디오 보정을 설정할 수 있습니다. **소리만 → 전송 버퍼 0 ms / 오디오 보정 0 ms**로 설정하면 송신기의 추가 대기 없이 A1 오디오를 전달합니다. 오인페·네트워크·수신 프로그램의 지연은 별도로 남습니다. 소리만 모드의 버퍼 범위는 0~2000 ms이고 보정 절댓값은 버퍼 이하입니다. 화면 + 소리는 기존 200~2000 ms 버퍼와 100 ms 이상의 보정 여유를 유지합니다. 영상 옵션은 소리만 모드에서 숨기며 저장값은 유지합니다. NDI 설정을 바꿔도 로컬 캡처 설정은 바뀌지 않습니다.
+
+**소리만**은 화면 캡처 스레드·GPU 캡처 자원·영상 큐·NDI 영상 전송을 사용하지 않습니다. 검은 영상으로 대체하지 않으므로 영상 대역폭이 발생하지 않습니다. A1 최종 믹스, 오디오 타임스탬프, 버퍼·보정값과 헤드폰 모니터링 경로는 유지합니다. 받는 PC는 동일한 NDI 소스 이름을 사용합니다. 수신 프로그램에 따라 전환 전 마지막 영상이 남아 보일 수 있으나 새 영상은 전송하지 않습니다.
+
+선택은 NDI용 `sender.ini`의 `output_mode=audio_video` 또는 `output_mode=audio_only`로 저장됩니다. 키가 없는 기존 설정은 화면+소리로 동작하며 로컬 OBS 캡처 모드는 변경하지 않습니다. 네이티브 변경 후에는 `npm run build:native`로 빌드하세요. 실제 Voicemeeter와 NDI 런타임이 있는 Windows에서 `python test/smoke-ndi-modes.py`로 수신 영상 0프레임·정상 오디오와 기존 영상 모드를 검증할 수 있습니다. 테스트는 다른 A1 캡처를 종료한 상태에서 실행합니다.
